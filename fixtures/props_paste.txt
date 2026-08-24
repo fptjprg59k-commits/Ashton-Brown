@@ -1,0 +1,41 @@
+# Illustrative prop list in "paste from the app" format.
+# Full-game lines as they would stand at the break. Odds are synthetic: each
+# line sits near the simulated coin flip and prices carry a ~4.5% two-way hold,
+# so the board reads like a real one. Three lines are deliberately shaded away
+# from the model so the edge column has something to find, and Bateman's
+# anytime touchdown has already cashed at a stale price - it demonstrates
+# settled-line detection.
+#
+# The parser tolerates ordering and separators. American odds always carry an
+# explicit sign, lines never do, which is how the two are told apart.
+
+Ja'Marr Chase Over 121.5 Receiving Yards -105 -114
+Ja'Marr Chase Over 9.5 Receptions +142 -171
+Tee Higgins Over 63.5 Receiving Yards +119 -143
+Joe Burrow Over 301.5 Passing Yards -107 -112
+Joe Burrow Over 1.5 Passing Touchdowns -137 +114
+Joe Burrow Over 26.5 Completions -118 -102
+Chase Brown Over 50.5 Rushing Yards -131 +109
+Chase Brown Anytime Touchdown +518
+Mike Gesicki Over 42.5 Receiving Yards -104 -115
+Andrei Iosivas Over 35.5 Receiving Yards -107 -112
+
+Derrick Henry Over 140.5 Rushing Yards -123 +102
+Derrick Henry Over 23.5 Rushing Attempts -113 -106
+Lamar Jackson Over 229.5 Passing Yards -109 -110
+Lamar Jackson Over 60.5 Rushing Yards -104 -116
+Zay Flowers Over 77.5 Receiving Yards -106 -112
+Zay Flowers Over 5.5 Receptions -191 +157
+Zay Flowers Anytime Touchdown +315
+Mark Andrews Over 48.5 Receiving Yards -105 -114
+Rashod Bateman Over 48.5 Receiving Yards -107 -112
+Rashod Bateman Anytime Touchdown +230
+Isaiah Likely Over 23.5 Receiving Yards -109 -110
+
+# Alternate (lower) lines, as books offer alongside the main number.
+Ja'Marr Chase Over 99.5 Receiving Yards -422 +323
+Derrick Henry Over 109.5 Rushing Yards -673 +473
+Joe Burrow Over 244.5 Passing Yards -1100 +679
+Zay Flowers Over 4.5 Receptions -1233 +733
+Lamar Jackson Over 189.5 Passing Yards -1023 +646
+Mark Andrews Over 39.5 Receiving Yards -257 +208

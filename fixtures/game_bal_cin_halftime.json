@@ -1,0 +1,177 @@
+{
+  "_comment": "Illustrative sample game state at halftime. Rosters and ratings are plausible but invented for demonstration and testing - they are not a live feed and should not be read as current depth charts.",
+  "game_id": "sample-bal-cin",
+  "quarter": 3,
+  "seconds_remaining": 1800,
+  "possession": "CIN",
+  "pregame_total": 47.5,
+  "pregame_spread": -3.5,
+  "weather": {
+    "wind_mph": 18.0,
+    "temp_f": 41.0,
+    "precip": "none",
+    "dome": false
+  },
+  "officials": {
+    "crew": "sample_crew",
+    "penalties_per_game": 15.1,
+    "offensive_holding_rate": 1.15,
+    "dpi_rate": 1.2
+  },
+  "home": {
+    "abbr": "BAL",
+    "name": "Baltimore",
+    "score": 17,
+    "base_pass_rate": 0.545,
+    "base_sec_per_play": 32.1,
+    "off_pass_eff": 1.08,
+    "off_rush_eff": 1.14,
+    "defense": {
+      "pass_yds_mult": 0.94,
+      "rush_yds_mult": 0.89,
+      "comp_rate_mult": 0.97,
+      "sack_rate_mult": 1.18,
+      "int_rate_mult": 1.1,
+      "slot_funnel": 1.12,
+      "perimeter_funnel": 0.92,
+      "deep_funnel": 0.85,
+      "rb_target_funnel": 1.08,
+      "shadow": { "cin_chase": 0.86 }
+    },
+    "players": [
+      {
+        "player_id": "bal_jackson", "name": "Lamar Jackson", "position": "QB",
+        "is_starter_qb": true, "star": true,
+        "rush_share": 0.22, "ypc": 5.6, "explosiveness": 0.62,
+        "sack_rate": 0.071, "int_rate": 0.016, "scramble_rate": 0.085,
+        "h1": { "pass_att": 17, "pass_cmp": 12, "pass_yds": 145, "pass_td": 1,
+                "rush_att": 5, "rush_yds": 31, "longest_rush": 14 }
+      },
+      {
+        "player_id": "bal_henry", "name": "Derrick Henry", "position": "RB",
+        "star": true, "rush_share": 0.68, "rz_rush_share": 0.74,
+        "target_share": 0.09, "rz_target_share": 0.05,
+        "ypc": 4.9, "adot": 0.5, "yac": 6.5, "catch_rate": 0.78,
+        "explosiveness": 0.55, "alignment": "backfield",
+        "h1": { "rush_att": 11, "rush_yds": 68, "rush_td": 1, "longest_rush": 22,
+                "targets": 1, "rec": 1, "rec_yds": 6 }
+      },
+      {
+        "player_id": "bal_hill", "name": "Justice Hill", "position": "RB",
+        "rush_share": 0.10, "target_share": 0.07, "ypc": 4.4,
+        "adot": 1.5, "yac": 5.5, "catch_rate": 0.80, "explosiveness": 0.45,
+        "alignment": "backfield", "h1": { "rush_att": 2, "rush_yds": 9 }
+      },
+      {
+        "player_id": "bal_flowers", "name": "Zay Flowers", "position": "WR",
+        "star": true, "target_share": 0.26, "rz_target_share": 0.21,
+        "adot": 9.5, "yac": 4.8, "catch_rate": 0.68, "explosiveness": 0.60,
+        "alignment": "slot",
+        "h1": { "targets": 6, "rec": 4, "rec_yds": 52, "longest_rec": 21 }
+      },
+      {
+        "player_id": "bal_bateman", "name": "Rashod Bateman", "position": "WR",
+        "target_share": 0.17, "rz_target_share": 0.16,
+        "adot": 14.0, "yac": 2.6, "catch_rate": 0.55, "explosiveness": 0.80,
+        "alignment": "perimeter",
+        "h1": { "targets": 4, "rec": 2, "rec_yds": 38, "rec_td": 1, "longest_rec": 29 }
+      },
+      {
+        "player_id": "bal_andrews", "name": "Mark Andrews", "position": "TE",
+        "target_share": 0.19, "rz_target_share": 0.26,
+        "adot": 8.0, "yac": 4.2, "catch_rate": 0.70, "explosiveness": 0.35,
+        "alignment": "inline",
+        "h1": { "targets": 4, "rec": 3, "rec_yds": 31, "longest_rec": 14 }
+      },
+      {
+        "player_id": "bal_likely", "name": "Isaiah Likely", "position": "TE",
+        "target_share": 0.11, "rz_target_share": 0.10,
+        "adot": 7.5, "yac": 4.0, "catch_rate": 0.69, "explosiveness": 0.40,
+        "alignment": "inline",
+        "h1": { "targets": 2, "rec": 2, "rec_yds": 18, "longest_rec": 11 }
+      },
+      {
+        "player_id": "bal_kicker", "name": "Baltimore Kicker", "position": "K",
+        "h1": { "fg_made": 1, "xp_made": 2 }
+      }
+    ]
+  },
+  "away": {
+    "abbr": "CIN",
+    "name": "Cincinnati",
+    "score": 10,
+    "base_pass_rate": 0.625,
+    "base_sec_per_play": 29.3,
+    "off_pass_eff": 1.06,
+    "off_rush_eff": 0.93,
+    "defense": {
+      "pass_yds_mult": 1.07,
+      "rush_yds_mult": 1.11,
+      "comp_rate_mult": 1.04,
+      "sack_rate_mult": 0.88,
+      "int_rate_mult": 0.92,
+      "slot_funnel": 1.0,
+      "perimeter_funnel": 1.05,
+      "deep_funnel": 1.1,
+      "rb_target_funnel": 1.0,
+      "shadow": {}
+    },
+    "players": [
+      {
+        "player_id": "cin_burrow", "name": "Joe Burrow", "position": "QB",
+        "is_starter_qb": true, "star": true,
+        "rush_share": 0.12, "ypc": 3.2, "explosiveness": 0.30,
+        "sack_rate": 0.058, "int_rate": 0.021, "scramble_rate": 0.035,
+        "h1": { "pass_att": 21, "pass_cmp": 14, "pass_yds": 168, "pass_td": 1,
+                "rush_att": 2, "rush_yds": 9, "longest_rush": 7 }
+      },
+      {
+        "player_id": "cin_brown", "name": "Chase Brown", "position": "RB",
+        "star": true, "rush_share": 0.70, "rz_rush_share": 0.66,
+        "target_share": 0.15, "rz_target_share": 0.08,
+        "ypc": 4.2, "adot": 1.0, "yac": 6.0, "catch_rate": 0.79,
+        "explosiveness": 0.42, "alignment": "backfield",
+        "h1": { "rush_att": 9, "rush_yds": 34, "longest_rush": 11,
+                "targets": 2, "rec": 1, "rec_yds": 6 }
+      },
+      {
+        "player_id": "cin_moss", "name": "Zack Moss", "position": "RB",
+        "rush_share": 0.18, "target_share": 0.05, "ypc": 3.9,
+        "adot": 1.0, "yac": 5.0, "catch_rate": 0.75, "explosiveness": 0.35,
+        "alignment": "backfield", "h1": {}
+      },
+      {
+        "player_id": "cin_chase", "name": "Ja'Marr Chase", "position": "WR",
+        "star": true, "target_share": 0.30, "rz_target_share": 0.28,
+        "adot": 11.5, "yac": 5.4, "catch_rate": 0.66, "explosiveness": 0.72,
+        "alignment": "perimeter",
+        "h1": { "targets": 8, "rec": 6, "rec_yds": 82, "rec_td": 1, "longest_rec": 34 }
+      },
+      {
+        "player_id": "cin_higgins", "name": "Tee Higgins", "position": "WR",
+        "star": true, "target_share": 0.22, "rz_target_share": 0.24,
+        "adot": 11.0, "yac": 3.4, "catch_rate": 0.62, "explosiveness": 0.55,
+        "alignment": "perimeter", "injury": "questionable",
+        "h1": { "targets": 5, "rec": 3, "rec_yds": 41, "longest_rec": 19 }
+      },
+      {
+        "player_id": "cin_iosivas", "name": "Andrei Iosivas", "position": "WR",
+        "target_share": 0.13, "rz_target_share": 0.14,
+        "adot": 7.5, "yac": 3.8, "catch_rate": 0.64, "explosiveness": 0.30,
+        "alignment": "slot",
+        "h1": { "targets": 3, "rec": 2, "rec_yds": 18, "longest_rec": 12 }
+      },
+      {
+        "player_id": "cin_gesicki", "name": "Mike Gesicki", "position": "TE",
+        "target_share": 0.14, "rz_target_share": 0.12,
+        "adot": 7.0, "yac": 4.1, "catch_rate": 0.71, "explosiveness": 0.25,
+        "alignment": "inline",
+        "h1": { "targets": 3, "rec": 2, "rec_yds": 21, "longest_rec": 13 }
+      },
+      {
+        "player_id": "cin_kicker", "name": "Cincinnati Kicker", "position": "K",
+        "h1": { "fg_made": 1, "xp_made": 1 }
+      }
+    ]
+  }
+}
