@@ -22,8 +22,11 @@ from __future__ import annotations
 import json
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from ..dashboard import Dashboard, GameCard, TeamLine
+from ..status import GameStatus, SeasonType, derive_status
 from ..models import (
     GameState,
     InjuryStatus,
@@ -38,6 +41,14 @@ from .base import GameStateProvider, ProviderError
 
 SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 SUMMARY = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary"
+
+#: ESPN's integer encoding for the season type query parameter.
+_SEASON_TYPE_PARAM = {
+    SeasonType.PRESEASON: 1,
+    SeasonType.REGULAR: 2,
+    SeasonType.POSTSEASON: 3,
+    SeasonType.OFFSEASON: 1,
+}
 
 _POSITION_MAP = {
     "QB": Position.QB, "RB": Position.RB, "FB": Position.RB,
@@ -65,18 +76,40 @@ class ESPNProvider(GameStateProvider):
 
     # -- public ------------------------------------------------------------
 
-    def list_games_at_halftime(self) -> List[str]:
-        data = self._get(SCOREBOARD)
-        out = []
-        for event in data.get("events", []):
-            status = _dig(event, "status", "type", "name") or ""
-            if "HALFTIME" in str(status).upper():
-                out.append(str(event.get("id")))
-        return out
+    def _scoreboard_payload(
+        self,
+        season_type: Optional[SeasonType] = None,
+        week: Optional[int] = None,
+        date: Optional[str] = None,
+        year: Optional[int] = None,
+    ) -> Dict:
+        """Fetch the slate, optionally pinned to a season type and week.
 
-    def scoreboard(self) -> List[Dict[str, Any]]:
+        Preseason is the reason these parameters exist. The bare scoreboard
+        endpoint returns "the current slate", which during August can come back
+        empty or fall through to regular-season week 1 depending on where the
+        league is in its rollover. Asking for ``seasontype=1`` explicitly is
+        what makes preseason games reliably appear, and the dashboard treats
+        them like any other game because the status system does not care which
+        part of the calendar a game sits in.
+        """
+        params: Dict[str, Any] = {}
+        if season_type is not None:
+            params["seasontype"] = _SEASON_TYPE_PARAM[season_type]
+        if week is not None:
+            params["week"] = int(week)
+        if year is not None:
+            params["year"] = int(year)
+        if date:
+            params["dates"] = date
+        return self._get(SCOREBOARD, params or None)
+
+    def list_games_at_halftime(self, **kwargs) -> List[str]:
+        return [row["game_id"] for row in self.scoreboard(**kwargs) if row["at_halftime"]]
+
+    def scoreboard(self, **kwargs) -> List[Dict[str, Any]]:
         """Light summary of every game on the slate, for selection UIs."""
-        data = self._get(SCOREBOARD)
+        data = self._scoreboard_payload(**kwargs)
         rows = []
         for event in data.get("events", []):
             comp = (event.get("competitions") or [{}])[0]
@@ -86,16 +119,38 @@ class ESPNProvider(GameStateProvider):
                     "abbr": _dig(c, "team", "abbreviation"),
                     "score": _int(c.get("score")),
                 }
+            status = derive_status(
+                _dig(event, "status", "type", "name"),
+                period=_dig(event, "status", "period"),
+                clock=_dig(event, "status", "displayClock"),
+                completed=bool(_dig(event, "status", "type", "completed")),
+            )
             rows.append({
                 "game_id": str(event.get("id")),
                 "name": event.get("shortName"),
-                "status": _dig(event, "status", "type", "name"),
+                "status": status.value,
+                "at_halftime": status.is_actionable,
                 "period": _dig(event, "status", "period"),
                 "clock": _dig(event, "status", "displayClock"),
                 "home": teams.get("home", {}),
                 "away": teams.get("away", {}),
             })
         return rows
+
+    # -- dashboard ---------------------------------------------------------
+
+    def dashboard(
+        self,
+        season_type: Optional[SeasonType] = None,
+        week: Optional[int] = None,
+        date: Optional[str] = None,
+        year: Optional[int] = None,
+    ) -> Dashboard:
+        """Build a full dashboard from one scoreboard call."""
+        data = self._scoreboard_payload(
+            season_type=season_type, week=week, date=date, year=year
+        )
+        return dashboard_from_payload(data, season_type=season_type, week=week)
 
     def fetch(self, game_id: str) -> GameState:
         data = self._get(SUMMARY, {"event": game_id})
@@ -320,3 +375,148 @@ def _seconds_remaining(period: int, display_clock: Optional[str]) -> int:
         mm, ss = _int(parts[0]), _int(parts[1])
     quarters_left_after = max(0, 4 - period)
     return max(0, quarters_left_after * 900 + mm * 60 + ss)
+
+
+# --------------------------------------------------------------------------
+# Scoreboard event -> dashboard card
+# --------------------------------------------------------------------------
+
+
+def _card_from_event(event: Dict[str, Any]) -> Optional[GameCard]:
+    """Map one scoreboard event onto a dashboard card.
+
+    Tolerant by design: a slate where one game has a malformed competitor
+    should still render the other fifteen, so an unusable event is dropped
+    rather than raising.
+    """
+    comp = (event.get("competitions") or [{}])[0]
+    home = away = None
+    for c in comp.get("competitors") or []:
+        line = TeamLine(
+            abbr=str(_dig(c, "team", "abbreviation") or "?"),
+            name=str(
+                _dig(c, "team", "shortDisplayName")
+                or _dig(c, "team", "displayName")
+                or _dig(c, "team", "abbreviation")
+                or "?"
+            ),
+            score=_int(c.get("score")) if c.get("score") not in (None, "") else None,
+            record=_first_record(c),
+            logo_url=_dig(c, "team", "logo"),
+        )
+        if c.get("homeAway") == "home":
+            home = line
+        elif c.get("homeAway") == "away":
+            away = line
+
+    if home is None or away is None:
+        return None
+
+    period = _int(_dig(event, "status", "period")) or None
+    status = derive_status(
+        _dig(event, "status", "type", "name"),
+        period=period,
+        clock=_dig(event, "status", "displayClock"),
+        completed=bool(_dig(event, "status", "type", "completed")),
+    )
+
+    if status is GameStatus.SCHEDULED:
+        home.score = away.score = None
+
+    return GameCard(
+        game_id=str(event.get("id")),
+        home=home,
+        away=away,
+        status=status,
+        period=period,
+        clock=_dig(event, "status", "displayClock"),
+        start_time=_parse_iso(event.get("date")),
+        season_type=SeasonType.from_espn(_dig(event, "season", "type")),
+        week=_int(_dig(event, "week", "number")) or None,
+        broadcast=_broadcast(comp),
+        venue=_dig(comp, "venue", "fullName"),
+        situation=_dig(comp, "situation", "downDistanceText"),
+        odds=_odds(comp),
+        went_to_overtime=bool(period and period > 4),
+    )
+
+
+def _first_record(competitor: Dict[str, Any]) -> Optional[str]:
+    for rec in competitor.get("records") or []:
+        summary = rec.get("summary")
+        if summary:
+            return str(summary)
+    return None
+
+
+def _broadcast(comp: Dict[str, Any]) -> Optional[str]:
+    for b in comp.get("broadcasts") or []:
+        names = b.get("names") or []
+        if names:
+            return str(names[0])
+    return None
+
+
+def _odds(comp: Dict[str, Any]) -> Optional[str]:
+    for o in comp.get("odds") or []:
+        details = o.get("details")
+        total = o.get("overUnder")
+        if details and total:
+            return f"{details} · O/U {total}"
+        if details:
+            return str(details)
+    return None
+
+
+def _parse_iso(value: Any) -> Optional[datetime]:
+    """ESPN stamps kickoff in UTC with a trailing Z; render it locally."""
+    if not value:
+        return None
+    text = str(value).replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone()
+
+
+def dashboard_from_payload(
+    data: Dict[str, Any],
+    season_type: Optional[SeasonType] = None,
+    week: Optional[int] = None,
+) -> Dashboard:
+    """Build a dashboard from a scoreboard payload.
+
+    Shared by the live provider and by any saved snapshot, so an offline
+    fixture exercises exactly the code path that runs in production rather
+    than a parallel one that can drift.
+    """
+    cards = [
+        card
+        for card in (_card_from_event(ev) for ev in data.get("events", []))
+        if card is not None
+    ]
+
+    resolved = season_type or SeasonType.from_espn(_dig(data, "season", "type"))
+    wk = week or _int(_dig(data, "week", "number")) or None
+
+    label = {
+        SeasonType.PRESEASON: "Preseason",
+        SeasonType.POSTSEASON: "Postseason",
+    }.get(resolved, "")
+    subtitle = " · ".join(p for p in (label, f"Week {wk}" if wk else "") if p)
+
+    return Dashboard(
+        games=cards,
+        title="Today's Games",
+        subtitle=subtitle or None,
+        generated_at=datetime.now(),
+    )
+
+
+def load_dashboard(path: str) -> Dashboard:
+    """Read a saved scoreboard snapshot from disk."""
+    with open(path, "r", encoding="utf-8") as fh:
+        return dashboard_from_payload(json.load(fh))

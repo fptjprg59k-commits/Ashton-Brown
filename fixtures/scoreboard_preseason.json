@@ -1,0 +1,724 @@
+{
+ "season": {
+  "type": 1,
+  "year": 2026
+ },
+ "week": {
+  "number": 3
+ },
+ "events": [
+  {
+   "id": "401780001",
+   "date": "2026-08-24T23:00Z",
+   "shortName": "CIN @ BAL",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": 2,
+    "displayClock": "0:00",
+    "type": {
+     "name": "STATUS_HALFTIME",
+     "completed": false
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "BAL",
+        "shortDisplayName": "Ravens",
+        "displayName": "Ravens",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "2-0"
+        }
+       ],
+       "score": "17"
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "CIN",
+        "shortDisplayName": "Bengals",
+        "displayName": "Bengals",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-1"
+        }
+       ],
+       "score": "10"
+      }
+     ],
+     "venue": {
+      "fullName": "M&T Bank Stadium"
+     },
+     "broadcasts": [
+      {
+       "names": [
+        "NFL Net"
+       ]
+      }
+     ],
+     "odds": [
+      {
+       "details": "BAL -3.5",
+       "overUnder": "47.5"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401780002",
+   "date": "2026-08-24T23:05Z",
+   "shortName": "GB @ SEA",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": 2,
+    "displayClock": "0:00",
+    "type": {
+     "name": "STATUS_END_PERIOD",
+     "completed": false
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "SEA",
+        "shortDisplayName": "Seahawks",
+        "displayName": "Seahawks",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-1"
+        }
+       ],
+       "score": "14"
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "GB",
+        "shortDisplayName": "Packers",
+        "displayName": "Packers",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "2-0"
+        }
+       ],
+       "score": "14"
+      }
+     ],
+     "venue": {
+      "fullName": "Lumen Field"
+     },
+     "broadcasts": [
+      {
+       "names": [
+        "FOX"
+       ]
+      }
+     ],
+     "odds": [
+      {
+       "details": "SEA -1.5",
+       "overUnder": "41.0"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401780003",
+   "date": "2026-08-24T22:30Z",
+   "shortName": "DAL @ LAR",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": 3,
+    "displayClock": "8:42",
+    "type": {
+     "name": "STATUS_IN_PROGRESS",
+     "completed": false
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "LAR",
+        "shortDisplayName": "Rams",
+        "displayName": "Rams",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-1"
+        }
+       ],
+       "score": "13"
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "DAL",
+        "shortDisplayName": "Cowboys",
+        "displayName": "Cowboys",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "0-2"
+        }
+       ],
+       "score": "21"
+      }
+     ],
+     "venue": {
+      "fullName": "SoFi Stadium"
+     },
+     "broadcasts": [
+      {
+       "names": [
+        "ESPN"
+       ]
+      }
+     ],
+     "situation": {
+      "downDistanceText": "2nd & 7 at LAR 38"
+     }
+    }
+   ]
+  },
+  {
+   "id": "401780004",
+   "date": "2026-08-24T23:20Z",
+   "shortName": "MIA @ NE",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": 1,
+    "displayClock": "0:00",
+    "type": {
+     "name": "STATUS_END_PERIOD",
+     "completed": false
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "NE",
+        "shortDisplayName": "Patriots",
+        "displayName": "Patriots",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "2-0"
+        }
+       ],
+       "score": "7"
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "MIA",
+        "shortDisplayName": "Dolphins",
+        "displayName": "Dolphins",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-1"
+        }
+       ],
+       "score": "3"
+      }
+     ],
+     "venue": {
+      "fullName": "Gillette Stadium"
+     },
+     "broadcasts": [
+      {
+       "names": [
+        "CBS"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401780005",
+   "date": "2026-08-24T21:00Z",
+   "shortName": "KC @ ARI",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": 5,
+    "displayClock": "4:11",
+    "type": {
+     "name": "STATUS_IN_PROGRESS",
+     "completed": false
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "ARI",
+        "shortDisplayName": "Cardinals",
+        "displayName": "Cardinals",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-1"
+        }
+       ],
+       "score": "27"
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "KC",
+        "shortDisplayName": "Chiefs",
+        "displayName": "Chiefs",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "2-0"
+        }
+       ],
+       "score": "27"
+      }
+     ],
+     "venue": {
+      "fullName": "State Farm Stadium"
+     },
+     "broadcasts": [
+      {
+       "names": [
+        "NFL Net"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401780006",
+   "date": "2026-08-25T00:15Z",
+   "shortName": "PHI @ NYJ",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": null,
+    "displayClock": null,
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "completed": false
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "NYJ",
+        "shortDisplayName": "Jets",
+        "displayName": "Jets",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "0-2"
+        }
+       ]
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "PHI",
+        "shortDisplayName": "Eagles",
+        "displayName": "Eagles",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-1"
+        }
+       ]
+      }
+     ],
+     "venue": {
+      "fullName": "MetLife Stadium"
+     },
+     "broadcasts": [
+      {
+       "names": [
+        "Prime"
+       ]
+      }
+     ],
+     "odds": [
+      {
+       "details": "PHI -2.5",
+       "overUnder": "44.5"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401780007",
+   "date": "2026-08-25T02:00Z",
+   "shortName": "SF @ LV",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": null,
+    "displayClock": null,
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "completed": false
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "LV",
+        "shortDisplayName": "Raiders",
+        "displayName": "Raiders",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-1"
+        }
+       ]
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "SF",
+        "shortDisplayName": "49ers",
+        "displayName": "49ers",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "2-0"
+        }
+       ]
+      }
+     ],
+     "venue": {
+      "fullName": "Allegiant Stadium"
+     },
+     "broadcasts": [
+      {
+       "names": [
+        "NFL Net"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401780008",
+   "date": "2026-08-24T17:00Z",
+   "shortName": "BUF @ CHI",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": 4,
+    "displayClock": "0:00",
+    "type": {
+     "name": "STATUS_FINAL",
+     "completed": true
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "CHI",
+        "shortDisplayName": "Bears",
+        "displayName": "Bears",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-2"
+        }
+       ],
+       "score": "20"
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "BUF",
+        "shortDisplayName": "Bills",
+        "displayName": "Bills",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "2-1"
+        }
+       ],
+       "score": "24"
+      }
+     ],
+     "venue": {
+      "fullName": "Soldier Field"
+     }
+    }
+   ]
+  },
+  {
+   "id": "401780009",
+   "date": "2026-08-24T17:00Z",
+   "shortName": "DET @ PIT",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": 5,
+    "displayClock": "0:00",
+    "type": {
+     "name": "STATUS_FINAL",
+     "completed": true
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "PIT",
+        "shortDisplayName": "Steelers",
+        "displayName": "Steelers",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "2-1"
+        }
+       ],
+       "score": "33"
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "DET",
+        "shortDisplayName": "Lions",
+        "displayName": "Lions",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "2-1"
+        }
+       ],
+       "score": "30"
+      }
+     ],
+     "venue": {
+      "fullName": "Acrisure Stadium"
+     }
+    }
+   ]
+  },
+  {
+   "id": "401780010",
+   "date": "2026-08-24T23:00Z",
+   "shortName": "TB @ JAX",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": 2,
+    "displayClock": "3:20",
+    "type": {
+     "name": "STATUS_DELAYED",
+     "completed": false
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "JAX",
+        "shortDisplayName": "Jaguars",
+        "displayName": "Jaguars",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-1"
+        }
+       ],
+       "score": "10"
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "TB",
+        "shortDisplayName": "Buccaneers",
+        "displayName": "Buccaneers",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-1"
+        }
+       ],
+       "score": "7"
+      }
+     ],
+     "venue": {
+      "fullName": "EverBank Stadium"
+     }
+    }
+   ]
+  },
+  {
+   "id": "401780011",
+   "date": "2026-08-25T01:00Z",
+   "shortName": "HOU @ NO",
+   "season": {
+    "type": 1,
+    "year": 2026
+   },
+   "week": {
+    "number": 3
+   },
+   "status": {
+    "period": null,
+    "displayClock": null,
+    "type": {
+     "name": "STATUS_POSTPONED",
+     "completed": false
+    }
+   },
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "NO",
+        "shortDisplayName": "Saints",
+        "displayName": "Saints",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "0-2"
+        }
+       ]
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "HOU",
+        "shortDisplayName": "Texans",
+        "displayName": "Texans",
+        "logo": ""
+       },
+       "records": [
+        {
+         "summary": "1-1"
+        }
+       ]
+      }
+     ],
+     "venue": {
+      "fullName": "Caesars Superdome"
+     }
+    }
+   ]
+  }
+ ]
+}

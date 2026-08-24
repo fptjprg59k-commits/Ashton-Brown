@@ -18,7 +18,9 @@ from .models import PropScope, Prop
 from .priors import Priors
 from .providers.stake import StakePropsProvider
 from .rank import SORT_KEYS, correlation_matrix, independent_parlay_probability, parlay_probability
+from .dashboard import render_dashboard, render_dashboard_terminal
 from .report import render_html, render_terminal, to_json
+from .status import SeasonType
 from .serde import load_game
 
 
@@ -199,6 +201,48 @@ def cmd_parlay(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dashboard(args: argparse.Namespace) -> int:
+    """Render the status-driven board of every game on the slate."""
+    from .providers.espn import load_dashboard
+
+    if args.source:
+        dash = load_dashboard(args.source)
+    else:
+        from .providers.espn import ESPNProvider
+
+        season = SeasonType(args.season_type) if args.season_type else None
+        dash = ESPNProvider().dashboard(
+            season_type=season, week=args.week, date=args.date, year=args.year
+        )
+
+    now = None
+    if args.now:
+        from datetime import datetime
+
+        now = datetime.fromisoformat(args.now.replace("Z", "+00:00"))
+
+    if not dash.games:
+        print(
+            "No games returned. During the preseason the bare scoreboard can "
+            "come back empty - try --season-type preseason --week N.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if args.format == "html":
+        out = render_dashboard(dash, now=now, refresh_seconds=args.refresh)
+    else:
+        out = render_dashboard_terminal(dash, now=now)
+
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as fh:
+            fh.write(out)
+        print(f"wrote {args.out}")
+    else:
+        print(out)
+    return 0
+
+
 def cmd_scoreboard(args: argparse.Namespace) -> int:
     from .providers.espn import ESPNProvider
 
@@ -305,6 +349,39 @@ def build_parser() -> argparse.ArgumentParser:
     par.add_argument("legs", nargs="+", help="board ranks (1 2 5) or prop ids")
     add_common(par)
     par.set_defaults(func=cmd_parlay)
+
+    dash = sub.add_parser(
+        "dashboard", help="status-driven board of every game on the slate"
+    )
+    dash.add_argument(
+        "--source",
+        default=None,
+        help="saved scoreboard JSON; omit to fetch live",
+    )
+    dash.add_argument(
+        "--season-type",
+        dest="season_type",
+        default=None,
+        choices=("preseason", "regular", "postseason"),
+        help="pin the slate; preseason often needs this explicitly",
+    )
+    dash.add_argument("--week", type=int, default=None)
+    dash.add_argument("--year", type=int, default=None)
+    dash.add_argument("--date", default=None, help="YYYYMMDD")
+    dash.add_argument("--format", default="text", choices=("text", "html"))
+    dash.add_argument("--out", default=None)
+    dash.add_argument(
+        "--refresh",
+        type=int,
+        default=None,
+        help="seconds between auto-refreshes in the HTML output",
+    )
+    dash.add_argument(
+        "--now",
+        default=None,
+        help="ISO timestamp to treat as the current time (for countdowns)",
+    )
+    dash.set_defaults(func=cmd_dashboard)
 
     sb = sub.add_parser("scoreboard", help="list today's games (needs network)")
     sb.set_defaults(func=cmd_scoreboard)

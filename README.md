@@ -34,12 +34,69 @@ highest-probability-first — with the reasons each number landed where it did.
 
 ```bash
 pip install -e .          # or: pip install numpy pyyaml
+
+# the slate: which games are live, upcoming, finished - and which are at the break
+nflprops dashboard --source fixtures/scoreboard_preseason.json
+
+# the board for one game at halftime
 nflprops run --game fixtures/game_bal_cin_halftime.json \
              --props fixtures/props_paste.txt --verbose
 ```
 
-Everything above runs offline against the bundled sample game. Nothing needs a
+Everything above runs offline against bundled sample data. Nothing needs a
 network connection.
+
+---
+
+## The dashboard
+
+A vertical feed of game cards, sorted so the games you can still act on sit at
+the top. Card state is driven entirely by the game's status:
+
+| Status | Card | Reads |
+| --- | --- | --- |
+| **Halftime** | Green surface, green rail | `HALFTIME` + *Prop board ready* |
+| **Live** | Blue rail, pulsing dot | `2nd · 08:42` |
+| **End of quarter** | Blue rail, steady dot | `END 1st` |
+| **Upcoming** | Neutral, no score | `7:30 PM` + *in 42 min* |
+| **Final** | Muted, dimmed | `FINAL` / `FINAL/OT` |
+| **Delayed / postponed** | Amber | `DELAYED` |
+
+```bash
+nflprops dashboard                                  # live, today's slate
+nflprops dashboard --season-type preseason --week 3 # pin the slate
+nflprops dashboard --format html --out board.html --refresh 60
+```
+
+### Green is a meaning, not a colour
+
+`nflprops/status.py` owns the status system, and nothing downstream styles a
+card directly. A card asks its status for a *tone*; the tone maps to design
+tokens. Adding a state, or changing what halftime looks like, is a one-line
+change that propagates to the HTML board, the terminal board, and anything
+built later.
+
+That indirection is what makes halftime detection correct rather than merely
+pretty. Feeds disagree about how to describe the break — some report a
+dedicated halftime status, some report "end of period" with the period set to
+2, some just leave the clock at zero — and all three mean the same thing to a
+bettor. Resolving that in one place is the difference between a dashboard that
+turns green at halftime and one that turns green *most* of the time. The
+bundled fixture contains two halftime games encoded two different ways, and a
+test asserts both are caught, along with the inverse: an end-of-**first**
+quarter must never turn the card green.
+
+The status also carries `is_actionable`, which is true for exactly one state.
+That is why a halftime card — and only a halftime card — offers the prop board.
+
+### Preseason
+
+Preseason is a calendar fact, not a different kind of football, so the status
+logic is identical and games carry a `PRE Wk 3` badge. The one real difference
+is fetching: the bare scoreboard endpoint returns "the current slate", which in
+August can come back empty or fall through to regular-season week 1 depending
+on where the league is in its rollover. Pass `--season-type preseason`
+(optionally with `--week`) to pin it.
 
 ---
 
@@ -303,7 +360,8 @@ held out and why.
 ## Output formats
 
 ```bash
-nflprops run ... --format text        # terminal board (default)
+nflprops dashboard ... --format html  # the slate
+nflprops run ... --format text        # one game's props (default)
 nflprops run ... --format json --out board.json
 nflprops run ... --format html --out board.html
 nflprops run ... --verbose            # driver attribution under each line
@@ -349,6 +407,6 @@ If gambling stops being fun: in the US, call or text **1-800-GAMBLER**.
 
 ```bash
 pip install -e ".[dev]"
-pytest -q                # 94 tests
+pytest -q                # 150 tests
 nflprops calibrate       # engine vs. league averages
 ```
