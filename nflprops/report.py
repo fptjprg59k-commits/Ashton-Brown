@@ -12,7 +12,7 @@ import html
 import json
 from typing import List, Optional, Sequence
 
-from .models import GameState, PropScope
+from .models import BINARY_MARKETS, GameState, PropScope
 from .rank import GameDiagnostics, RankedProp
 
 BAR_CHARS = "▏▎▍▌▋▊▉█"
@@ -195,51 +195,249 @@ def to_json(
     return json.dumps(payload, indent=2)
 
 
+
+
 # --------------------------------------------------------------------------
 # HTML
 # --------------------------------------------------------------------------
 
+_FONTS = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?'
+    "family=Saira+Condensed:wght@500;600;700&"
+    "family=Source+Sans+3:ital,wght@0,400;0,600;1,400&"
+    'family=IBM+Plex+Mono:wght@400;500;600&display=swap">'
+)
 
 _CSS = """
-:root{--bg:#f7f7f5;--panel:#fff;--ink:#1a1a18;--muted:#6b6b66;--line:#e2e2dd;
---pos:#1a7f4b;--neg:#b4342a;--accent:#2f5d8f;--bar:#c9d6e6;--barfill:#2f5d8f;}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
---bg:#16161a;--panel:#1e1e23;--ink:#ececea;--muted:#9a9a94;--line:#33333a;
---pos:#5fc48a;--neg:#e8776c;--accent:#8fb4dd;--bar:#33333a;--barfill:#8fb4dd;}}
-:root[data-theme=dark]{--bg:#16161a;--panel:#1e1e23;--ink:#ececea;--muted:#9a9a94;
---line:#33333a;--pos:#5fc48a;--neg:#e8776c;--accent:#8fb4dd;--bar:#33333a;--barfill:#8fb4dd;}
+:root{
+  --ground:#f5f7fa; --card:#ffffff; --ink:#151a22; --muted:#68718400;
+  --muted:#687184; --faint:#8b93a3; --rule:#e2e6ed; --rule-soft:#eef1f6;
+  --accent:#2d4b8e; --accent-soft:#dbe3f4; --accent-ink:#20356a;
+  --pos:#12734a; --pos-soft:#d9efe3; --neg:#a82f27; --neg-soft:#f7e0de;
+  --track:#e8ebf1; --tick:#151a22;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0f131b; --card:#171d28; --ink:#e6e9ef; --muted:#98a1b3;
+  --faint:#798296; --rule:#28303e; --rule-soft:#1f2632;
+  --accent:#7fa3e8; --accent-soft:#22304b; --accent-ink:#a9c3f2;
+  --pos:#4fc98a; --pos-soft:#16352a; --neg:#f0817a; --neg-soft:#3a1f1d;
+  --track:#232b38; --tick:#e6e9ef;
+}}
+:root[data-theme="dark"]{
+  --ground:#0f131b; --card:#171d28; --ink:#e6e9ef; --muted:#98a1b3;
+  --faint:#798296; --rule:#28303e; --rule-soft:#1f2632;
+  --accent:#7fa3e8; --accent-soft:#22304b; --accent-ink:#a9c3f2;
+  --pos:#4fc98a; --pos-soft:#16352a; --neg:#f0817a; --neg-soft:#3a1f1d;
+  --track:#232b38; --tick:#e6e9ef;
+}
+
 *{box-sizing:border-box}
-body{margin:0;padding:28px 20px 60px;background:var(--bg);color:var(--ink);
-font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
-.wrap{max-width:1120px;margin:0 auto}
-h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
-.sub{color:var(--muted);font-size:13px;margin-bottom:20px}
-.ctx{background:var(--panel);border:1px solid var(--line);border-radius:10px;
-padding:14px 16px;margin-bottom:20px;font-size:13.5px}
-.ctx div{padding:3px 0}
-.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);
-border-radius:10px}
-table{border-collapse:collapse;width:100%;min-width:900px;font-size:13.5px}
-th{text-align:left;font-weight:600;color:var(--muted);font-size:11px;
-text-transform:uppercase;letter-spacing:.06em;padding:12px 10px;
-border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-tr:last-child td{border-bottom:none}
-.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.rank{color:var(--muted);text-align:right;width:34px}
-.prop{font-weight:600}
-.scope{color:var(--muted);font-weight:400;font-size:11.5px}
-.pos{color:var(--pos)}.neg{color:var(--neg)}
-.barwrap{background:var(--bar);border-radius:3px;height:7px;width:90px;
-overflow:hidden;margin-top:5px}
-.barfill{background:var(--barfill);height:100%}
-.drivers{margin:7px 0 0;padding:0;list-style:none;color:var(--muted);font-size:12.5px}
-.drivers li{padding:1.5px 0 1.5px 12px;text-indent:-12px}
-.drivers li:before{content:"– "}
-.conf{font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--line);
-color:var(--muted);white-space:nowrap}
-.note{margin-top:18px;color:var(--muted);font-size:12.5px;line-height:1.6}
+body{
+  margin:0; padding:0 0 72px; background:var(--ground); color:var(--ink);
+  font-family:"Source Sans 3",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:0 20px}
+
+/* ---- scoreboard bug ------------------------------------------------- */
+.board{
+  background:var(--card); border:1px solid var(--rule); border-radius:4px;
+  margin:26px 0 18px; overflow:hidden;
+}
+.board-top{
+  display:flex; align-items:stretch; flex-wrap:wrap;
+  border-bottom:1px solid var(--rule);
+}
+.eyebrow{
+  font-family:"Saira Condensed",ui-sans-serif,sans-serif; font-weight:600;
+  font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--faint);
+}
+.score{
+  display:flex; align-items:baseline; gap:14px; padding:16px 22px;
+  border-right:1px solid var(--rule); flex:0 0 auto;
+}
+.score .abbr{
+  font-family:"Saira Condensed",ui-sans-serif,sans-serif; font-weight:700;
+  font-size:26px; letter-spacing:.04em; line-height:1;
+}
+.score .pts{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-weight:600;
+  font-size:26px; line-height:1; font-variant-numeric:tabular-nums;
+}
+.score .at{color:var(--faint); font-size:15px; padding:0 2px}
+.score.has-ball .abbr{color:var(--accent)}
+.ballmark{
+  font-family:"Saira Condensed",sans-serif; font-size:10px; font-weight:600;
+  letter-spacing:.1em; color:var(--accent); background:var(--accent-soft);
+  padding:2px 6px; border-radius:2px; align-self:center;
+}
+.clock{display:flex; flex-direction:column; justify-content:center;
+  padding:14px 22px; gap:2px}
+.clock .t{
+  font-family:"IBM Plex Mono",monospace; font-size:19px; font-weight:600;
+  font-variant-numeric:tabular-nums; line-height:1.15;
+}
+
+/* ---- context tiles --------------------------------------------------- */
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(184px,1fr))}
+.tile{padding:13px 22px; border-right:1px solid var(--rule-soft);
+  border-top:1px solid var(--rule-soft); display:flex; flex-direction:column; gap:3px}
+.tile:last-child{border-right:none}
+.tile .v{
+  font-family:"IBM Plex Mono",monospace; font-size:16px; font-weight:500;
+  font-variant-numeric:tabular-nums; line-height:1.25;
+}
+.tile .note{font-size:12.5px; color:var(--muted); line-height:1.35}
+
+/* ---- table ----------------------------------------------------------- */
+.scroller{overflow-x:auto; background:var(--card);
+  border:1px solid var(--rule); border-radius:4px}
+table{border-collapse:collapse; width:100%; min-width:940px}
+thead th{
+  font-family:"Saira Condensed",ui-sans-serif,sans-serif; font-weight:600;
+  font-size:11px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--faint); text-align:left; padding:11px 12px;
+  border-bottom:1px solid var(--rule); white-space:nowrap; vertical-align:bottom;
+}
+tbody td{padding:13px 12px; border-bottom:1px solid var(--rule-soft);
+  vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+.num{text-align:right; font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-variant-numeric:tabular-nums; white-space:nowrap}
+.rk{width:38px; text-align:right; color:var(--faint);
+  font-family:"IBM Plex Mono",monospace; font-size:13px; padding-top:15px}
+.name{font-weight:600; letter-spacing:-.005em}
+.tag{font-family:"Saira Condensed",sans-serif; font-size:10.5px;
+  letter-spacing:.09em; text-transform:uppercase; color:var(--accent);
+  background:var(--accent-soft); padding:1px 5px; border-radius:2px;
+  margin-left:6px; vertical-align:1px}
+
+/* probability */
+.pcell{width:112px}
+.pval{font-size:16px; font-weight:600}
+.ptrack{height:5px; background:var(--track); border-radius:3px;
+  overflow:hidden; margin-top:6px}
+.pfill{height:100%; background:var(--accent); border-radius:3px}
+
+/* distribution strip: the model's actual claim, drawn */
+.dist{width:170px; padding-top:4px}
+.strip{position:relative; height:22px; margin-top:3px}
+.strip .axis{position:absolute; left:0; right:0; top:10px; height:2px;
+  background:var(--track); border-radius:2px}
+.strip .band{position:absolute; top:7px; height:8px; background:var(--accent-soft);
+  border-radius:2px}
+.strip .med{position:absolute; top:5px; width:2px; height:12px;
+  background:var(--accent); border-radius:1px}
+.strip .line{position:absolute; top:0; width:2px; height:22px;
+  background:var(--tick)}
+.strip .line:after{content:""; position:absolute; left:-2px; top:0;
+  border-left:3px solid transparent; border-right:3px solid transparent;
+  border-top:4px solid var(--tick)}
+.range{font-family:"IBM Plex Mono",monospace; font-size:11.5px;
+  color:var(--muted); font-variant-numeric:tabular-nums; margin-top:1px}
+
+/* chips */
+.chip{display:inline-block; font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px; font-weight:500; padding:2px 7px; border-radius:3px;
+  font-variant-numeric:tabular-nums}
+.chip.up{color:var(--pos); background:var(--pos-soft)}
+.chip.down{color:var(--neg); background:var(--neg-soft)}
+.conf{font-family:"Saira Condensed",sans-serif; font-size:10.5px;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+  border:1px solid var(--rule); padding:2px 7px; border-radius:2px;
+  white-space:nowrap}
+
+/* drivers */
+.why{margin:8px 0 0; padding:0; list-style:none; display:flex;
+  flex-direction:column; gap:2px; max-width:62ch}
+.why li{font-size:12.8px; color:var(--muted); line-height:1.45;
+  padding-left:13px; position:relative}
+.why li:before{content:""; position:absolute; left:0; top:8px; width:5px;
+  height:1px; background:var(--faint)}
+.why b{color:var(--ink); font-weight:600}
+
+/* prose */
+h1{font-family:"Saira Condensed",ui-sans-serif,sans-serif; font-weight:700;
+  font-size:31px; letter-spacing:.005em; margin:30px 0 2px; text-wrap:balance}
+.deck{color:var(--muted); font-size:14.5px; margin:0 0 4px; max-width:70ch}
+.section-label{margin:30px 0 10px}
+.legend{display:flex; flex-wrap:wrap; gap:18px; margin:12px 2px 0;
+  font-size:12.5px; color:var(--muted)}
+.legend span{display:flex; align-items:center; gap:6px}
+.sw{width:22px; height:8px; border-radius:2px; display:inline-block}
+.sw.band{background:var(--accent-soft)}
+.sw.med{background:var(--accent); width:2px; height:12px}
+.sw.line{background:var(--tick); width:2px; height:12px}
+.notes{margin-top:24px; display:grid; gap:14px;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.note-card{border-left:2px solid var(--rule); padding:2px 0 2px 14px;
+  font-size:13.2px; color:var(--muted); line-height:1.55; max-width:65ch}
+.note-card b{color:var(--ink); font-weight:600}
+.settled{margin-top:14px; font-size:13px; color:var(--muted)}
+.settled code{font-family:"IBM Plex Mono",monospace; font-size:12.2px;
+  background:var(--rule-soft); padding:1px 5px; border-radius:2px}
+footer{margin-top:30px; padding-top:14px; border-top:1px solid var(--rule);
+  font-size:12.5px; color:var(--faint)}
 """
+
+
+def _strip_html(ev, line: float) -> str:
+    """Draw the 80% range against the book's line.
+
+    This is the model's actual claim in one glance: not "he projects for 118"
+    but "the middle of his distribution sits here, the line sits there, and
+    the spread is this wide". A prop that clears only via one explosive play
+    has a visibly wider band than one that gets there on volume, even when
+    both project the same number.
+    """
+    lo, hi = float(ev.p10), float(ev.p90)
+    med = float(ev.median)
+    left = min(lo, line, med)
+    right = max(hi, line, med)
+    span = right - left
+    if span <= 0:
+        span = 1.0
+    pad = span * 0.12
+    left -= pad
+    right += pad
+    span = right - left
+
+    def pos(v: float) -> float:
+        return max(0.0, min(100.0, (v - left) / span * 100.0))
+
+    band_l, band_r = pos(lo), pos(hi)
+    return (
+        f'<div class="strip"><div class="axis"></div>'
+        f'<div class="band" style="left:{band_l:.1f}%;width:{max(band_r - band_l, 1.2):.1f}%"></div>'
+        f'<div class="med" style="left:{pos(med):.1f}%"></div>'
+        f'<div class="line" style="left:{pos(line):.1f}%"></div></div>'
+        f'<div class="range">{lo:.0f} – {hi:.0f}</div>'
+    )
+
+
+#: Drivers the HTML board already encodes elsewhere. "Line" is exactly what
+#: the range strip draws, and "Weather" is a game-level fact sitting in the
+#: conditions tile - repeating either on all twenty rows is noise that pushes
+#: the rows that differ off the screen. The terminal board, which has no strip
+#: and no tiles, keeps both.
+_REDUNDANT_IN_HTML = ("Line:", "Weather:")
+
+
+def _driver_html(drivers, escape) -> str:
+    """Bold the driver's category so the column scans vertically."""
+    out = []
+    for d in drivers:
+        if d.startswith(_REDUNDANT_IN_HTML):
+            continue
+        label, sep, rest = d.partition(": ")
+        if sep:
+            out.append(f"<li><b>{escape(label)}</b> {escape(rest)}</li>")
+        else:
+            out.append(f"<li>{escape(d)}</li>")
+    return "".join(out)
 
 
 def render_html(
@@ -248,57 +446,146 @@ def render_html(
     diag: GameDiagnostics,
     n_sims: int,
     title: Optional[str] = None,
+    settled: Optional[Sequence[RankedProp]] = None,
 ) -> str:
     e = html.escape
-    name = title or f"{state.away.abbr} @ {state.home.abbr} Halftime Board"
+    away, home = state.away, state.home
+    name = title or f"{away.abbr}–{home.abbr} Halftime Board"
 
-    ctx = "".join(f"<div>{e(line)}</div>" for line in context_lines(state, diag))
+    mins, secs = divmod(diag.seconds_remaining, 60)
+
+    def score_block(team, ball: bool) -> str:
+        cls = "score has-ball" if ball else "score"
+        mark = '<span class="ballmark">BALL</span>' if ball else ""
+        return (
+            f'<div class="{cls}"><span class="abbr">{e(team.abbr)}</span>'
+            f'<span class="pts">{team.score}</span>{mark}</div>'
+        )
+
+    w = state.weather
+    if w.dome:
+        conditions = "Indoors"
+    else:
+        bits = [f"{w.temp_f:.0f}&deg;F", f"wind {w.wind_mph:.0f} mph"]
+        if w.precip.value != "none":
+            bits.append(w.precip.value.replace("_", " "))
+        conditions = ", ".join(bits)
+
+    def lean(team) -> str:
+        got = diag.pass_rate[team.abbr]
+        delta = got - team.base_pass_rate
+        word = "pass-leaning" if delta > 0 else "run-leaning"
+        return (
+            f'<div class="tile"><span class="eyebrow">{e(team.abbr)} script</span>'
+            f'<span class="v">{got:.0%} pass</span>'
+            f'<span class="note">{word} vs {team.base_pass_rate:.0%} neutral</span></div>'
+        )
+
+    tiles = (
+        f'<div class="tile"><span class="eyebrow">Projected final</span>'
+        f'<span class="v">{diag.proj_points[away.abbr]:.1f} – {diag.proj_points[home.abbr]:.1f}</span>'
+        f'<span class="note">{e(home.abbr)} win {diag.win_prob[home.abbr]:.0%}</span></div>'
+        + lean(away) + lean(home)
+        + f'<div class="tile"><span class="eyebrow">Blowout risk</span>'
+        f'<span class="v">{diag.blowout_prob:.0%}</span>'
+        f'<span class="note">17+ margin; drives star rest risk</span></div>'
+        f'<div class="tile"><span class="eyebrow">Conditions</span>'
+        f'<span class="v">{conditions}</span>'
+        f'<span class="note">~{diag.away_plays:.0f} / {diag.home_plays:.0f} H2 plays</span></div>'
+    )
 
     rows = []
     for i, r in enumerate(ranked, 1):
         ev, pr = r.evaluation, r.pricing
-        scope = " <span class='scope'>[2nd half]</span>" if ev.prop.scope is PropScope.SECOND_HALF else ""
+        binary = ev.prop.market in BINARY_MARKETS
+        tag = '<span class="tag">2H</span>' if ev.prop.scope is PropScope.SECOND_HALF else ""
+        edge_cls = "up" if pr.edge > 0 else "down"
+        ev_cls = "up" if pr.ev_per_unit > 0 else "down"
+        dist = "" if binary else _strip_html(ev, ev.prop.line)
         push = (
-            f"<div class='scope'>push {ev.p_push:.1%}</div>" if ev.p_push > 0.005 else ""
+            f'<div class="range">push {ev.p_push:.0%}</div>' if ev.p_push > 0.005 else ""
         )
-        drivers = "".join(f"<li>{e(d)}</li>" for d in r.drivers)
-        edge_cls = "pos" if pr.edge > 0 else "neg"
-        ev_cls = "pos" if pr.ev_per_unit > 0 else "neg"
         rows.append(
-            f"<tr><td class='rank'>{i}</td>"
-            f"<td><div class='prop'>{e(ev.prop.label)}{scope}</div>"
-            f"<ul class='drivers'>{drivers}</ul></td>"
-            f"<td class='num'><strong>{ev.p_win:.1%}</strong>{push}"
-            f"<div class='barwrap'><div class='barfill' style='width:{ev.p_win * 100:.1f}%'></div></div></td>"
+            f"<tr><td class='rk'>{i}</td>"
+            f"<td><div class='name'>{e(ev.prop.label)}{tag}</div>"
+            f"<ul class='why'>{_driver_html(r.drivers, e)}</ul></td>"
+            f"<td class='num pcell'><div class='pval'>{ev.p_win:.1%}</div>"
+            f"<div class='ptrack'><div class='pfill' style='width:{ev.p_win * 100:.1f}%'></div></div>"
+            f"{push}</td>"
+            f"<td class='dist'>{dist}</td>"
             f"<td class='num'>{e(_odds_str(pr.odds))}</td>"
             f"<td class='num'>{pr.fair_prob:.1%}</td>"
-            f"<td class='num {edge_cls}'>{pr.edge:+.1%}</td>"
-            f"<td class='num {ev_cls}'>{pr.ev_per_unit:+.2f}</td>"
-            f"<td class='num'>{ev.median:.0f}<div class='scope'>{ev.p10:.0f}–{ev.p90:.0f}</div></td>"
+            f"<td class='num'><span class='chip {edge_cls}'>{pr.edge:+.1%}</span></td>"
+            f"<td class='num'><span class='chip {ev_cls}'>{pr.ev_per_unit:+.2f}</span></td>"
             f"<td><span class='conf'>{e(r.confidence)}</span></td></tr>"
         )
 
+    settled_html = ""
+    if settled:
+        items = ", ".join(
+            f"{e(s.prop.label)} <code>already {e(s.evaluation.settled or '')}</code>"
+            for s in settled
+        )
+        settled_html = (
+            f'<p class="settled"><b>Held out as already decided:</b> {items}. '
+            f"First-half production alone settles these, so ranking them at "
+            f"100% against a stale price would be noise.</p>"
+        )
+
+    mc = 50 * (1 / n_sims) ** 0.5
+
     return f"""<title>{e(name)}</title>
+{_FONTS}
 <style>{_CSS}</style>
 <div class="wrap">
-<h1>{e(name)}</h1>
-<div class="sub">{n_sims:,} simulated second halves &middot; sorted by hit probability</div>
-<div class="ctx">{ctx}</div>
-<div class="tablewrap"><table>
-<thead><tr><th></th><th>Prop</th><th class="num">Hit %</th><th class="num">Odds</th>
-<th class="num">Fair</th><th class="num">Edge</th><th class="num">EV</th>
-<th class="num">Median<br>80% range</th><th>Conf</th></tr></thead>
+<h1>{e(away.abbr)} at {e(home.abbr)} — halftime prop board</h1>
+<p class="deck">Every offered line, ranked by how often it cashed across
+{n_sims:,} simulated second halves.</p>
+
+<div class="board">
+  <div class="board-top">
+    {score_block(away, state.possession == away.abbr)}
+    {score_block(home, state.possession == home.abbr)}
+    <div class="clock">
+      <span class="eyebrow">Q{state.quarter} &middot; remaining</span>
+      <span class="t">{mins}:{secs:02d}</span>
+    </div>
+  </div>
+  <div class="tiles">{tiles}</div>
+</div>
+
+<div class="scroller"><table>
+<thead><tr>
+  <th></th><th>Prop &amp; what moved it</th><th class="num">Hit</th>
+  <th>Range vs line</th><th class="num">Odds</th><th class="num">Fair</th>
+  <th class="num">Edge</th><th class="num">EV</th><th>Conf</th>
+</tr></thead>
 <tbody>{''.join(rows)}</tbody>
 </table></div>
-<p class="note"><strong>Reading this board.</strong> It is sorted by hit
-probability, so the top rows are the most <em>likely</em> props &mdash; which
-are usually short-priced favourites, not the best bets. <strong>Edge</strong>
-is model probability minus the book's vig-free probability; that column, not
-the hit rate, is where the model claims the number is wrong. Median and the
-80% range show the shape of the projection: a wide range means the prop
-depends on one explosive play rather than accumulated volume.</p>
-<p class="note">Probabilities carry Monte Carlo error of about
-&plusmn;{50 * (1 / n_sims) ** 0.5:.2f} percentage points at 50%. Model priors
-are league-average defaults, not fitted to a proprietary database &mdash; treat
-edges under about 3 points as noise.</p>
+
+<div class="legend">
+  <span><i class="sw band"></i> 80% of outcomes (10th–90th)</span>
+  <span><i class="sw med"></i> median</span>
+  <span><i class="sw line"></i> the book's line</span>
+</div>
+
+{settled_html}
+
+<div class="notes">
+  <p class="note-card"><b>Likely is not the same as profitable.</b> This is
+  sorted by hit probability, so the top rows are short-priced favourites. The
+  <b>Edge</b> column &mdash; model probability minus the book's vig-free
+  probability &mdash; is where the model claims the number is actually wrong.</p>
+  <p class="note-card"><b>Read the range, not just the median.</b> A wide band
+  means the prop depends on one explosive play; a narrow one means it gets
+  there on accumulated volume. Two props with the same median and different
+  bands are different bets.</p>
+  <p class="note-card"><b>How much to trust it.</b> Simulation error is about
+  &plusmn;{mc:.2f} points at a 50% probability. Model priors are league-average
+  defaults rather than parameters fitted to a proprietary database, so treat
+  edges under roughly 3 points as noise.</p>
+</div>
+
+<footer>Generated by nflprops &middot; analysis only, not advice &middot;
+if gambling stops being fun, call or text 1-800-GAMBLER</footer>
 </div>"""

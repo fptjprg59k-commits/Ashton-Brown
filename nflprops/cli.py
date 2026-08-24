@@ -99,7 +99,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.format == "json":
         out = to_json(result.ranked, state, result.diagnostics, result.n_sims)
     elif args.format == "html":
-        out = render_html(result.ranked, state, result.diagnostics, result.n_sims)
+        out = render_html(
+            result.ranked, state, result.diagnostics, result.n_sims,
+            settled=result.settled,
+        )
     else:
         out = render_terminal(
             result.ranked,

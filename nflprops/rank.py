@@ -223,8 +223,8 @@ def explain(
         # --- rest risk ---------------------------------------------------
         if player.star and diag.blowout_prob > 0.18:
             out.append(
-                f"Blowout risk: {diag.blowout_prob:.0%} chance of a 17+ margin; "
-                f"star rest risk truncates the top of this distribution"
+                f"Rest risk: {diag.blowout_prob:.0%} chance of a 17+ margin, "
+                f"which truncates a star's ceiling"
             )
 
         # --- variance profile --------------------------------------------
