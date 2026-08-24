@@ -14,6 +14,7 @@ from typing import List, Optional, Sequence
 
 from .models import BINARY_MARKETS, GameState, PropScope
 from .rank import GameDiagnostics, RankedProp
+from .theme import BASE_CSS, TOKENS_CSS
 
 BAR_CHARS = "▏▎▍▌▋▊▉█"
 
@@ -210,37 +211,10 @@ _FONTS = (
     'family=IBM+Plex+Mono:wght@400;500;600&display=swap">'
 )
 
-_CSS = """
-:root{
-  --ground:#f5f7fa; --card:#ffffff; --ink:#151a22; --muted:#68718400;
-  --muted:#687184; --faint:#8b93a3; --rule:#e2e6ed; --rule-soft:#eef1f6;
-  --accent:#2d4b8e; --accent-soft:#dbe3f4; --accent-ink:#20356a;
-  --pos:#12734a; --pos-soft:#d9efe3; --neg:#a82f27; --neg-soft:#f7e0de;
-  --track:#e8ebf1; --tick:#151a22;
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --ground:#0f131b; --card:#171d28; --ink:#e6e9ef; --muted:#98a1b3;
-  --faint:#798296; --rule:#28303e; --rule-soft:#1f2632;
-  --accent:#7fa3e8; --accent-soft:#22304b; --accent-ink:#a9c3f2;
-  --pos:#4fc98a; --pos-soft:#16352a; --neg:#f0817a; --neg-soft:#3a1f1d;
-  --track:#232b38; --tick:#e6e9ef;
-}}
-:root[data-theme="dark"]{
-  --ground:#0f131b; --card:#171d28; --ink:#e6e9ef; --muted:#98a1b3;
-  --faint:#798296; --rule:#28303e; --rule-soft:#1f2632;
-  --accent:#7fa3e8; --accent-soft:#22304b; --accent-ink:#a9c3f2;
-  --pos:#4fc98a; --pos-soft:#16352a; --neg:#f0817a; --neg-soft:#3a1f1d;
-  --track:#232b38; --tick:#e6e9ef;
-}
-
-*{box-sizing:border-box}
-body{
-  margin:0; padding:0 0 72px; background:var(--ground); color:var(--ink);
-  font-family:"Source Sans 3",ui-sans-serif,system-ui,-apple-system,sans-serif;
-  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
-}
-.wrap{max-width:1180px; margin:0 auto; padding:0 20px}
-
+#: Board-only styles. Tokens and the typographic baseline come from
+#: ``theme``, so the standalone report and the combined dashboard share one
+#: design system instead of carrying two drifting copies of it.
+_COMPONENT_CSS = """
 /* ---- scoreboard bug ------------------------------------------------- */
 .board{
   background:var(--card); border:1px solid var(--rule); border-radius:4px;
@@ -250,25 +224,20 @@ body{
   display:flex; align-items:stretch; flex-wrap:wrap;
   border-bottom:1px solid var(--rule);
 }
-.eyebrow{
-  font-family:"Saira Condensed",ui-sans-serif,sans-serif; font-weight:600;
-  font-size:11px; letter-spacing:.16em; text-transform:uppercase;
-  color:var(--faint);
-}
-.score{
+.bscore{
   display:flex; align-items:baseline; gap:14px; padding:16px 22px;
   border-right:1px solid var(--rule); flex:0 0 auto;
 }
-.score .abbr{
+.bscore .abbr{
   font-family:"Saira Condensed",ui-sans-serif,sans-serif; font-weight:700;
   font-size:26px; letter-spacing:.04em; line-height:1;
 }
-.score .pts{
+.bscore .pts{
   font-family:"IBM Plex Mono",ui-monospace,monospace; font-weight:600;
   font-size:26px; line-height:1; font-variant-numeric:tabular-nums;
 }
-.score .at{color:var(--faint); font-size:15px; padding:0 2px}
-.score.has-ball .abbr{color:var(--accent)}
+.bscore .at{color:var(--faint); font-size:15px; padding:0 2px}
+.bscore.has-ball .abbr{color:var(--accent)}
 .ballmark{
   font-family:"Saira Condensed",sans-serif; font-size:10px; font-weight:600;
   letter-spacing:.1em; color:var(--accent); background:var(--accent-soft);
@@ -384,6 +353,9 @@ footer{margin-top:30px; padding-top:14px; border-top:1px solid var(--rule);
 """
 
 
+_CSS = TOKENS_CSS + BASE_CSS + _COMPONENT_CSS
+
+
 def _strip_html(ev, line: float) -> str:
     """Draw the 80% range against the book's line.
 
@@ -440,14 +412,21 @@ def _driver_html(drivers, escape) -> str:
     return "".join(out)
 
 
-def render_html(
+def render_board_fragment(
     ranked: Sequence[RankedProp],
     state: GameState,
     diag: GameDiagnostics,
     n_sims: int,
     title: Optional[str] = None,
     settled: Optional[Sequence[RankedProp]] = None,
+    heading_level: str = "h1",
 ) -> str:
+    """The board itself, with no page chrome around it.
+
+    Split out so the standalone report and the combined dashboard render the
+    identical board from one implementation. A second copy of this markup would
+    drift the moment either surface changed.
+    """
     e = html.escape
     away, home = state.away, state.home
     name = title or f"{away.abbr}–{home.abbr} Halftime Board"
@@ -455,7 +434,7 @@ def render_html(
     mins, secs = divmod(diag.seconds_remaining, 60)
 
     def score_block(team, ball: bool) -> str:
-        cls = "score has-ball" if ball else "score"
+        cls = "bscore has-ball" if ball else "bscore"
         mark = '<span class="ballmark">BALL</span>' if ball else ""
         return (
             f'<div class="{cls}"><span class="abbr">{e(team.abbr)}</span>'
@@ -534,11 +513,7 @@ def render_html(
 
     mc = 50 * (1 / n_sims) ** 0.5
 
-    return f"""<title>{e(name)}</title>
-{_FONTS}
-<style>{_CSS}</style>
-<div class="wrap">
-<h1>{e(away.abbr)} at {e(home.abbr)} — halftime prop board</h1>
+    return f"""<{heading_level}>{e(away.abbr)} at {e(home.abbr)} — halftime prop board</{heading_level}>
 <p class="deck">Every offered line, ranked by how often it cashed across
 {n_sims:,} simulated second halves.</p>
 
@@ -586,6 +561,25 @@ def render_html(
   edges under roughly 3 points as noise.</p>
 </div>
 
+"""
+
+
+def render_html(
+    ranked: Sequence[RankedProp],
+    state: GameState,
+    diag: GameDiagnostics,
+    n_sims: int,
+    title: Optional[str] = None,
+    settled: Optional[Sequence[RankedProp]] = None,
+) -> str:
+    """Standalone single-game page."""
+    name = title or f"{state.away.abbr}–{state.home.abbr} Halftime Board"
+    body = render_board_fragment(ranked, state, diag, n_sims, title, settled)
+    return f"""<title>{html.escape(name)}</title>
+{_FONTS}
+<style>{_CSS}</style>
+<div class="wrap">
+{body}
 <footer>Generated by nflprops &middot; analysis only, not advice &middot;
 if gambling stops being fun, call or text 1-800-GAMBLER</footer>
 </div>"""

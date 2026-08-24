@@ -35,10 +35,14 @@ highest-probability-first — with the reasons each number landed where it did.
 ```bash
 pip install -e .          # or: pip install numpy pyyaml
 
-# the slate: which games are live, upcoming, finished - and which are at the break
-nflprops dashboard --source fixtures/scoreboard_preseason.json
+# everything at once: the slate, with each halftime game clickable through
+# to its own prop board
+nflprops app --scoreboard fixtures/scoreboard_preseason.json \
+             --manifest   fixtures/manifest_preseason.json \
+             --out board.html
 
-# the board for one game at halftime
+# or either surface on its own
+nflprops dashboard --source fixtures/scoreboard_preseason.json
 nflprops run --game fixtures/game_bal_cin_halftime.json \
              --props fixtures/props_paste.txt --verbose
 ```
@@ -66,6 +70,34 @@ the top. Card state is driven entirely by the game's status:
 nflprops dashboard                                  # live, today's slate
 nflprops dashboard --season-type preseason --week 3 # pin the slate
 nflprops dashboard --format html --out board.html --refresh 60
+```
+
+### Click a green card to get its board
+
+`nflprops app` renders the slate and a full prop board for every analysed game
+into **one self-contained page**. Click a green card, or press its link, and
+the board opens; `Esc` or the back arrow returns to the slate. Boards are
+addressable (`board.html#game-401780001`), so a deep link opens straight onto
+one, and the browser's back button works normally.
+
+There is no fetch and no loading state — every board is rendered ahead of time
+into the same file — so it works offline, from a `file://` path, or published
+as an artifact.
+
+Which games are clickable is decided by the status, not the caller: only a game
+that is *actually at halftime* can be linked, so a stale board for a game that
+has since restarted can never be presented as live analysis. A halftime game
+with no props loaded stays inert and says **No props loaded** rather than
+offering a click that goes nowhere.
+
+The manifest maps slate ids to input files:
+
+```json
+{"games": [
+  {"game_id": "401780001",
+   "state": "fixtures/game_bal_cin_halftime.json",
+   "props": "fixtures/props_paste.txt"}
+]}
 ```
 
 ### Green is a meaning, not a colour
@@ -360,7 +392,8 @@ held out and why.
 ## Output formats
 
 ```bash
-nflprops dashboard ... --format html  # the slate
+nflprops app ...                      # slate + boards, one page
+nflprops dashboard ... --format html  # the slate alone
 nflprops run ... --format text        # one game's props (default)
 nflprops run ... --format json --out board.json
 nflprops run ... --format html --out board.html
@@ -407,6 +440,6 @@ If gambling stops being fun: in the US, call or text **1-800-GAMBLER**.
 
 ```bash
 pip install -e ".[dev]"
-pytest -q                # 150 tests
+pytest -q                # 157 tests
 nflprops calibrate       # engine vs. league averages
 ```

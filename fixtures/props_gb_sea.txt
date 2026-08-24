@@ -1,0 +1,34 @@
+# Illustrative prop list in "paste from the app" format, for the GB-SEA sample.
+# Full-game lines as they would stand at the break, with a two-way price on
+# each so vig can be removed exactly.
+#
+# Lines are set at the engine's own medians so the board reads like a real one
+# rather than a wall of free money, and prices carry a ~4% two-way hold. Four
+# lines are deliberately shaded off the model (Horton, Kraft, Golden, Jacobs
+# attempts) so the edge column has something genuine to find. Both anytime
+# touchdowns have already cashed in the first half - they demonstrate the
+# settled-prop guard rather than the ranking. Synthetic throughout: not real
+# market data.
+
+Jordan Love Over 263.5 Passing Yards -110 -110
+Sam Darnold Over 285.5 Passing Yards -108 -112
+Josh Jacobs Over 98.5 Rushing Yards -112 -108
+Josh Jacobs Over 24.5 Rushing Attempts -120 +100
+Kenneth Walker III Over 68.5 Rushing Yards -110 -110
+Kenneth Walker III Anytime Touchdown +148
+Jaxon Smith-Njigba Over 9.5 Receptions -105 -115
+Jaxon Smith-Njigba Over 113.5 Receiving Yards -110 -110
+Jayden Reed Over 6.5 Receptions +108 -128
+Jayden Reed Over 94.5 Receiving Yards -110 -110
+Tucker Kraft Over 48.5 Receiving Yards -125 +103
+Romeo Doubs Over 42.5 Receiving Yards -112 -108
+Matthew Golden Over 24.5 Receiving Yards -108 -112
+Cooper Kupp Over 47.5 Receiving Yards -110 -110
+Tory Horton Over 56.5 Receiving Yards -104 -116
+AJ Barner Over 33.5 Receiving Yards -110 -110
+Emanuel Wilson Over 19.5 Rushing Yards -112 -108
+Jordan Love Over 2.5 Passing Touchdowns +142 -172
+Josh Jacobs Anytime Touchdown -135
+Tucker Kraft Anytime Touchdown +205
+Jaxon Smith-Njigba Over 48.5 Receiving Yards 2nd Half -112
+Kenneth Walker III Over 33.5 Rushing Yards 2nd Half -108

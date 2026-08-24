@@ -378,7 +378,7 @@ def _score_html(card: GameCard) -> str:
     )
 
 
-def _under_html(card: GameCard) -> str:
+def _under_html(card: GameCard, clickable: bool = False) -> str:
     e = html.escape
     bits: List[str] = []
 
@@ -392,10 +392,15 @@ def _under_html(card: GameCard) -> str:
             bits.append(e(value))
 
     ready = ""
-    if card.status.is_actionable:
+    if clickable:
         ready = (
-            '<span class="ready"><span class="dot"></span>Prop board ready</span>'
+            '<span class="ready">View prop board'
+            '<span class="arrow" aria-hidden="true">&rarr;</span></span>'
         )
+    elif card.status.is_actionable:
+        # Halftime, but nothing to open - say so rather than implying a click.
+        ready = '<span class="ready muted">No props loaded</span>'
+    
 
     if not bits and not ready:
         return ""
@@ -406,7 +411,17 @@ def _under_html(card: GameCard) -> str:
     return f'<div class="under">{joined}{ready}</div>'
 
 
-def _card_html(card: GameCard, now: Optional[datetime]) -> str:
+def _card_html(
+    card: GameCard,
+    now: Optional[datetime],
+    href: Optional[str] = None,
+) -> str:
+    """One card. ``href`` makes it a link to its own prop board.
+
+    Only a game with a board behind it becomes clickable, so the affordance
+    never lies: if a card looks pressable, there is something to press through
+    to. A halftime game whose props were never loaded stays inert and says so.
+    """
     e = html.escape
     disp = card.display(now)
     tone = disp.tone.value
@@ -425,8 +440,11 @@ def _card_html(card: GameCard, now: Optional[datetime]) -> str:
 
     sub = f'<span class="substat">{e(sub_text)}</span>' if sub_text else ""
 
+    tag = "a" if href else "article"
+    link = f' href="{e(href)}"' if href else ""
+
     return (
-        f'<article class="card" data-tone="{tone}" '
+        f'<{tag} class="card"{link} data-tone="{tone}" '
         f'data-running="{"true" if card.status is GameStatus.LIVE else "false"}" '
         f'data-filters="{_filter_slugs(card.status)}" '
         f'aria-label="{e(card.away.display)} at {e(card.home.display)}, {e(disp.label)}">'
@@ -434,26 +452,24 @@ def _card_html(card: GameCard, now: Optional[datetime]) -> str:
         f"{_score_html(card)}"
         f"{_team_html(card.away, 'away', card.leader)}"
         f'<div class="stat"><span class="pill">{dot}{e(pill_text)}</span>{sub}</div>'
-        f"{_under_html(card)}"
-        f"</article>"
+        f"{_under_html(card, clickable=bool(href))}"
+        f"</{tag}>"
     )
 
 
-def render_dashboard(
+def render_slate_fragment(
     dash: Dashboard,
     now: Optional[datetime] = None,
-    title: Optional[str] = None,
-    refresh_seconds: Optional[int] = None,
+    link_for=None,
 ) -> str:
-    """Render the full dashboard page.
+    """Header, filters and feed, with no page chrome.
 
-    ``refresh_seconds`` adds a meta refresh, which is what turns a rendered
-    file into a board you can actually leave open during a slate. It is off by
-    default because a published or emailed copy should stay put.
+    ``link_for`` is called with each game id and returns an href or None, which
+    is how the combined app turns halftime cards into links while the
+    standalone dashboard leaves every card inert.
     """
     e = html.escape
     games = dash.sorted_games()
-    page_title = title or "NFL Game Dashboard"
 
     counts = {
         "all": len(games),
@@ -462,7 +478,6 @@ def render_dashboard(
         "upcoming": dash.upcoming_count,
         "finished": dash.final_count,
     }
-
     filters = "".join(
         f'<button type="button" data-filter="{slug}" aria-pressed="false">'
         f'{e(label)}<span class="cnt">{counts.get(slug, 0)}</span></button>'
@@ -479,25 +494,18 @@ def render_dashboard(
         for label, n, hot in tallies
     )
 
-    cards = "".join(_card_html(g, now) for g in games)
-    stamp = ""
-    if dash.generated_at:
-        stamp = f"As of {_format_stamp(dash.generated_at)}"
+    # Only an actionable game can ever be linked. Gating here rather than in
+    # the caller means no surface can accidentally make a finished or upcoming
+    # game clickable - the status decides, as it does everywhere else.
+    def href_for(game: GameCard) -> Optional[str]:
+        if not link_for or not game.status.is_actionable:
+            return None
+        return link_for(game.game_id)
 
+    cards = "".join(_card_html(g, now, href=href_for(g)) for g in games)
     subtitle = dash.subtitle or ""
 
-    refresh = (
-        f'<meta http-equiv="refresh" content="{int(refresh_seconds)}">'
-        if refresh_seconds
-        else ""
-    )
-
-    return f"""<title>{e(page_title)}</title>
-{refresh}
-{FONT_LINKS}
-<style>{_CSS}</style>
-<div class="wrap">
-  <div class="head">
+    return f"""<div class="head">
     <div>
       <h1>{e(dash.title)}</h1>
       {f'<p class="eyebrow" style="margin:6px 0 0">{e(subtitle)}</p>' if subtitle else ''}
@@ -510,7 +518,38 @@ def render_dashboard(
   <div class="feed" id="feed" data-empty="false">
     {cards}
     <p class="empty">No games in this view.</p>
-  </div>
+  </div>"""
+
+
+def render_dashboard(
+    dash: Dashboard,
+    now: Optional[datetime] = None,
+    title: Optional[str] = None,
+    refresh_seconds: Optional[int] = None,
+) -> str:
+    """Render the full dashboard page.
+
+    ``refresh_seconds`` adds a meta refresh, which is what turns a rendered
+    file into a board you can actually leave open during a slate. It is off by
+    default because a published or emailed copy should stay put.
+    """
+    e = html.escape
+    page_title = title or "NFL Game Dashboard"
+
+    stamp = f"As of {_format_stamp(dash.generated_at)}" if dash.generated_at else ""
+    refresh = (
+        f'<meta http-equiv="refresh" content="{int(refresh_seconds)}">'
+        if refresh_seconds
+        else ""
+    )
+    slate = render_slate_fragment(dash, now=now)
+
+    return f"""<title>{e(page_title)}</title>
+{refresh}
+{FONT_LINKS}
+<style>{_CSS}</style>
+<div class="wrap">
+  {slate}
 
   <footer>
     <span>{e(stamp)}</span>

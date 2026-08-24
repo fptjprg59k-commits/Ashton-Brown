@@ -1,0 +1,15 @@
+{
+ "_comment": "Maps slate game ids to the game-state and prop files for each game at halftime. Only games that appear on the scoreboard and are actually at the break become clickable.",
+ "games": [
+  {
+   "game_id": "401780001",
+   "state": "fixtures/game_bal_cin_halftime.json",
+   "props": "fixtures/props_paste.txt"
+  },
+  {
+   "game_id": "401780002",
+   "state": "fixtures/game_gb_sea_halftime.json",
+   "props": "fixtures/props_gb_sea.txt"
+  }
+ ]
+}

@@ -18,6 +18,7 @@ from .models import PropScope, Prop
 from .priors import Priors
 from .providers.stake import StakePropsProvider
 from .rank import SORT_KEYS, correlation_matrix, independent_parlay_probability, parlay_probability
+from .app import GameBoard, render_app
 from .dashboard import render_dashboard, render_dashboard_terminal
 from .report import render_html, render_terminal, to_json
 from .status import SeasonType
@@ -201,6 +202,82 @@ def cmd_parlay(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_app(args: argparse.Namespace) -> int:
+    """Render the slate and every analysed game as one navigable page."""
+    import json as _json
+
+    from .providers.espn import load_dashboard
+
+    dash = load_dashboard(args.scoreboard)
+
+    with open(args.manifest, "r", encoding="utf-8") as fh:
+        manifest = _json.load(fh)
+
+    entries = manifest.get("games", manifest) if isinstance(manifest, dict) else manifest
+    priors = Priors.load(args.priors) if args.priors else Priors()
+
+    known = {g.game_id for g in dash.games}
+    boards = []
+    for entry in entries:
+        gid = str(entry["game_id"])
+        if gid not in known:
+            print(
+                f"[warn] manifest game_id {gid!r} is not on this slate, skipping",
+                file=sys.stderr,
+            )
+            continue
+
+        state = _load_state(entry["state"])
+        props, rejected = _load_props(entry["props"], PropScope.FULL_GAME)
+        if rejected:
+            print(
+                f"[warn] {gid}: {len(rejected)} line(s) could not be parsed",
+                file=sys.stderr,
+            )
+        if not props:
+            print(f"[warn] {gid}: no usable props, skipping", file=sys.stderr)
+            continue
+
+        result = analyze(
+            state, props, priors=priors, n_sims=args.sims, seed=args.seed,
+            sort=args.sort, devig_method=args.devig,
+        )
+        boards.append(
+            GameBoard(
+                game_id=gid,
+                ranked=result.ranked,
+                state=result.state,
+                diag=result.diagnostics,
+                n_sims=args.sims,
+                settled=result.settled,
+            )
+        )
+        print(
+            f"[ok] {gid}: {len(result.ranked)} props ranked "
+            f"({state.away.abbr} @ {state.home.abbr})",
+            file=sys.stderr,
+        )
+
+    if not boards:
+        print("No boards could be built from the manifest.", file=sys.stderr)
+        return 2
+
+    now = None
+    if args.now:
+        from datetime import datetime
+
+        now = datetime.fromisoformat(args.now.replace("Z", "+00:00"))
+
+    out = render_app(dash, boards, now=now)
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as fh:
+            fh.write(out)
+        print(f"wrote {args.out}")
+    else:
+        print(out)
+    return 0
+
+
 def cmd_dashboard(args: argparse.Namespace) -> int:
     """Render the status-driven board of every game on the slate."""
     from .providers.espn import load_dashboard
@@ -349,6 +426,27 @@ def build_parser() -> argparse.ArgumentParser:
     par.add_argument("legs", nargs="+", help="board ranks (1 2 5) or prop ids")
     add_common(par)
     par.set_defaults(func=cmd_parlay)
+
+    app = sub.add_parser(
+        "app", help="slate + per-game prop boards as one navigable page"
+    )
+    app.add_argument("--scoreboard", required=True, help="scoreboard JSON snapshot")
+    app.add_argument(
+        "--manifest",
+        required=True,
+        help='JSON: {"games":[{"game_id","state","props"}]} mapping slate ids '
+             "to game-state and prop files",
+    )
+    app.add_argument("--out", default=None)
+    app.add_argument("--sims", type=int, default=20000)
+    app.add_argument("--seed", type=int, default=20260824)
+    app.add_argument("--sort", default="probability",
+                     choices=("probability", "edge", "ev", "kelly"))
+    app.add_argument("--devig", default="multiplicative",
+                     choices=("multiplicative", "shin", "none"))
+    app.add_argument("--priors", default=None)
+    app.add_argument("--now", default=None)
+    app.set_defaults(func=cmd_app)
 
     dash = sub.add_parser(
         "dashboard", help="status-driven board of every game on the slate"

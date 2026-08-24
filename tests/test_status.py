@@ -361,12 +361,36 @@ def test_html_marks_only_running_clocks_for_animation():
     assert markup.count('data-running="false"') == 1
 
 
-def test_html_offers_the_prop_board_only_at_halftime():
-    dash = Dashboard(games=[_card(GameStatus.HALFTIME, "a", 7, 3)])
-    assert "Prop board ready" in render_dashboard(dash)
+def test_a_card_is_only_clickable_when_a_board_exists_behind_it():
+    """The affordance must never lie.
 
-    dash = Dashboard(games=[_card(GameStatus.LIVE, "a", 7, 3)])
-    assert "Prop board ready" not in render_dashboard(dash)
+    A halftime card with a board becomes a link; a halftime card without one
+    says so plainly rather than inviting a click that goes nowhere.
+    """
+    from nflprops.dashboard import render_slate_fragment
+
+    dash = Dashboard(games=[_card(GameStatus.HALFTIME, "a", 7, 3)])
+
+    linked = render_slate_fragment(dash, link_for=lambda gid: f"#game-{gid}")
+    assert '<a class="card" href="#game-a"' in linked
+    assert "View prop board" in linked
+
+    bare = render_slate_fragment(dash, link_for=lambda gid: None)
+    assert "<a class=" not in bare
+    assert "No props loaded" in bare
+    assert "View prop board" not in bare
+
+
+def test_non_halftime_games_never_offer_a_board():
+    from nflprops.dashboard import render_slate_fragment
+
+    for status in (GameStatus.LIVE, GameStatus.SCHEDULED, GameStatus.FINAL):
+        out = render_slate_fragment(
+            Dashboard(games=[_card(status, "a", 7, 3)]),
+            link_for=lambda gid: f"#game-{gid}",
+        )
+        assert "View prop board" not in out
+        assert "No props loaded" not in out
 
 
 def test_terminal_dashboard_surfaces_the_next_command():
@@ -385,3 +409,111 @@ def test_every_filter_button_has_matching_cards_or_a_zero_count():
 
 def test_empty_dashboard_renders_without_raising():
     assert "No games in this view" in render_dashboard(Dashboard(games=[]))
+
+
+# --------------------------------------------------------------------------
+# Combined app
+# --------------------------------------------------------------------------
+
+
+def _app_page():
+    """Build the combined page from the bundled fixtures."""
+    from nflprops.agent import analyze
+    from nflprops.app import GameBoard, render_app
+    from nflprops.models import PropScope
+    from nflprops.providers.stake import StakePropsProvider
+    from nflprops.serde import load_game
+
+    dash = _fixture_dashboard()
+    root = os.path.dirname(os.path.dirname(__file__))
+
+    def board(gid, state_file, props_file):
+        state = load_game(os.path.join(root, "fixtures", state_file))
+        props = StakePropsProvider(
+            path=os.path.join(root, "fixtures", props_file),
+            default_scope=PropScope.FULL_GAME,
+        ).fetch()
+        res = analyze(state, props, n_sims=1200, seed=5)
+        return GameBoard(gid, res.ranked, res.state, res.diagnostics, 1200,
+                         settled=res.settled)
+
+    boards = [
+        board("401780001", "game_bal_cin_halftime.json", "props_paste.txt"),
+        board("401780002", "game_gb_sea_halftime.json", "props_gb_sea.txt"),
+    ]
+    return render_app(dash, boards), dash, boards
+
+
+def test_component_stylesheets_do_not_collide():
+    """The slate and the board share one page, so their classes must be disjoint.
+
+    This guards a bug that is invisible in either surface alone: the board's
+    scoreboard styling once overrode the dashboard's card score, drawing a
+    stray divider through every card. Whichever sheet is emitted second wins,
+    so the only safe invariant is that they never define the same bare class.
+    """
+    import re as _re
+
+    from nflprops.dashboard import _CSS as DASH
+    from nflprops.report import _COMPONENT_CSS as BOARD
+    from nflprops.theme import BASE_CSS as BASE, TOKENS_CSS as TOK
+
+    def bare_classes(css):
+        css = _re.sub(r"/\*.*?\*/", "", css, flags=_re.S)
+        found = set()
+        for _, sels in _re.findall(r"(^|\})([^{}@]+)\{", css, _re.M):
+            for sel in sels.split(","):
+                m = _re.match(r"\s*\.([a-zA-Z][\w-]*)\s*$", sel)
+                if m:
+                    found.add(m.group(1))
+        return found
+
+    dash_only = DASH.replace(TOK, "").replace(BASE, "")
+    assert not (bare_classes(BOARD) & bare_classes(dash_only))
+
+
+def test_app_links_only_halftime_cards_to_boards():
+    page, dash, boards = _app_page()
+    assert page.count('<a class="card"') == 2
+    for b in boards:
+        assert f'href="#{b.anchor}"' in page
+        assert f'id="{b.anchor}"' in page
+
+
+def test_app_embeds_a_full_board_per_game():
+    page, _, boards = _app_page()
+    for b in boards:
+        assert len(b.ranked) > 5
+    # Both boards' props are present in the one page. (Names are HTML-escaped,
+    # so match on a fragment without an apostrophe.)
+    assert "Chase" in page and "Derrick Henry" in page
+    assert "Jaxon Smith-Njigba" in page and "Josh Jacobs" in page
+
+
+def test_app_board_views_start_hidden_so_the_slate_is_the_landing_view():
+    page, _, _ = _app_page()
+    for chunk in page.split('<section class="view gameview"')[1:]:
+        assert "hidden>" in chunk.split(">", 1)[0] + ">"
+
+
+def test_app_survives_a_manifest_game_that_is_not_at_halftime():
+    """A board for a game that has restarted must not be presented as live."""
+    from nflprops.app import GameBoard, render_app
+
+    page, dash, boards = _app_page()
+    stale = boards[0]
+    # Point the board at a game that is FINAL on this slate.
+    stale = GameBoard("401780008", stale.ranked, stale.state, stale.diag, 1200)
+    out = render_app(dash, [stale])
+    assert '<a class="card"' not in out
+    assert "No props loaded" in out
+
+
+def test_app_has_no_board_when_nothing_is_at_halftime():
+    from nflprops.app import render_app
+
+    dash = Dashboard(games=[_card(GameStatus.FINAL, "a", 7, 3)])
+    out = render_app(dash, [])
+    assert "No game is at halftime right now" in out
+    # No board *element* - the class still appears in the stylesheet.
+    assert '<section class="view gameview"' not in out
