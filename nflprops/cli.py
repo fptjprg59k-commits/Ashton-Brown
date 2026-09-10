@@ -203,37 +203,114 @@ def cmd_parlay(args: argparse.Namespace) -> int:
 
 
 def cmd_app(args: argparse.Namespace) -> int:
-    """Render the slate and every analysed game as one navigable page."""
+    """Render the slate and every analysed game as one navigable page.
+
+    Two modes. ``--live`` pulls the current slate and, for each game actually
+    at the break, pulls its box score too - so the only thing you supply is the
+    prop list, which no feed can give you anyway. Otherwise everything comes
+    from files on disk, which is what the bundled fixtures exercise.
+    """
     import json as _json
 
-    from .providers.espn import load_dashboard
+    from .providers.espn import ESPNProvider, load_dashboard
+    from .providers.base import ProviderError
 
-    dash = load_dashboard(args.scoreboard)
+    provider = ESPNProvider() if args.live else None
 
-    with open(args.manifest, "r", encoding="utf-8") as fh:
-        manifest = _json.load(fh)
+    if args.live:
+        season = SeasonType(args.season_type) if args.season_type else None
+        try:
+            dash = provider.dashboard(
+                season_type=season, week=args.week, date=args.date, year=args.year
+            )
+        except ProviderError as exc:
+            print(f"Could not reach the scoreboard: {exc}", file=sys.stderr)
+            return 3
+    elif args.scoreboard:
+        dash = load_dashboard(args.scoreboard)
+    else:
+        print("Pass --live or --scoreboard <file>.", file=sys.stderr)
+        return 2
 
-    entries = manifest.get("games", manifest) if isinstance(manifest, dict) else manifest
+    # ---- work out which prop file belongs to which game --------------------
+    entries: Dict[str, Dict[str, str]] = {}
+
+    if args.manifest:
+        with open(args.manifest, "r", encoding="utf-8") as fh:
+            manifest = _json.load(fh)
+        rows = manifest.get("games", manifest) if isinstance(manifest, dict) else manifest
+        for row in rows:
+            entries[str(row["game_id"])] = dict(row)
+
+    for spec in args.props_for or []:
+        if "=" not in spec:
+            print(f"--props-for expects GAMEID=path, got {spec!r}", file=sys.stderr)
+            return 2
+        gid, path = spec.split("=", 1)
+        entries.setdefault(gid, {})["props"] = path
+
+    at_break = [g for g in dash.games if g.status.is_actionable]
+
+    if args.props:
+        # Shorthand for the common case: one game on, and it is at the break.
+        if len(at_break) == 1:
+            entries.setdefault(at_break[0].game_id, {})["props"] = args.props
+        elif not at_break:
+            print(
+                "Nothing is at halftime right now, so --props has no game to "
+                "attach to. Run `nflprops dashboard --live` to see the slate.",
+                file=sys.stderr,
+            )
+            return 4
+        else:
+            print(
+                f"{len(at_break)} games are at halftime, so --props is "
+                f"ambiguous. Use --props-for GAMEID=path:",
+                file=sys.stderr,
+            )
+            for g in at_break:
+                print(
+                    f"       {g.game_id}  {g.away.abbr} @ {g.home.abbr}",
+                    file=sys.stderr,
+                )
+            return 2
+
+    if not entries:
+        print(
+            "No prop lists supplied. Pass --props (one game at the break), "
+            "--props-for GAMEID=path, or --manifest.",
+            file=sys.stderr,
+        )
+        return 2
+
     priors = Priors.load(args.priors) if args.priors else Priors()
-
     known = {g.game_id for g in dash.games}
     boards = []
-    for entry in entries:
-        gid = str(entry["game_id"])
+
+    for gid, entry in entries.items():
         if gid not in known:
-            print(
-                f"[warn] manifest game_id {gid!r} is not on this slate, skipping",
-                file=sys.stderr,
-            )
+            print(f"[warn] {gid} is not on this slate, skipping", file=sys.stderr)
             continue
 
-        state = _load_state(entry["state"])
+        # State comes from a file when one is named, otherwise from the feed.
+        # Fetching per game rather than up front means a single unreachable
+        # box score costs that game only, not the whole page.
+        if entry.get("state"):
+            state = _load_state(entry["state"])
+        elif provider is not None:
+            try:
+                state = provider.fetch(gid)
+            except ProviderError as exc:
+                print(f"[warn] {gid}: could not fetch state ({exc})", file=sys.stderr)
+                continue
+        else:
+            print(f"[warn] {gid}: no state file and not --live, skipping",
+                  file=sys.stderr)
+            continue
+
         props, rejected = _load_props(entry["props"], PropScope.FULL_GAME)
         if rejected:
-            print(
-                f"[warn] {gid}: {len(rejected)} line(s) could not be parsed",
-                file=sys.stderr,
-            )
+            print(f"[warn] {gid}: {len(rejected)} line(s) unparsed", file=sys.stderr)
         if not props:
             print(f"[warn] {gid}: no usable props, skipping", file=sys.stderr)
             continue
@@ -244,22 +321,19 @@ def cmd_app(args: argparse.Namespace) -> int:
         )
         boards.append(
             GameBoard(
-                game_id=gid,
-                ranked=result.ranked,
-                state=result.state,
-                diag=result.diagnostics,
-                n_sims=args.sims,
-                settled=result.settled,
+                game_id=gid, ranked=result.ranked, state=result.state,
+                diag=result.diagnostics, n_sims=args.sims, settled=result.settled,
             )
         )
         print(
             f"[ok] {gid}: {len(result.ranked)} props ranked "
-            f"({state.away.abbr} @ {state.home.abbr})",
+            f"({state.away.abbr} {state.away.score} @ "
+            f"{state.home.abbr} {state.home.score})",
             file=sys.stderr,
         )
 
     if not boards:
-        print("No boards could be built from the manifest.", file=sys.stderr)
+        print("No boards could be built.", file=sys.stderr)
         return 2
 
     now = None
@@ -430,10 +504,23 @@ def build_parser() -> argparse.ArgumentParser:
     app = sub.add_parser(
         "app", help="slate + per-game prop boards as one navigable page"
     )
-    app.add_argument("--scoreboard", required=True, help="scoreboard JSON snapshot")
+    app.add_argument("--live", action="store_true",
+                     help="fetch the current slate and each halftime game's box score")
+    app.add_argument("--scoreboard", default=None,
+                     help="scoreboard JSON snapshot (offline alternative to --live)")
+    app.add_argument("--props", default=None,
+                     help="prop list, when exactly one game is at the break")
+    app.add_argument("--props-for", dest="props_for", action="append", default=[],
+                     metavar="GAMEID=PATH",
+                     help="prop list for one game; repeatable")
+    app.add_argument("--season-type", dest="season_type", default=None,
+                     choices=("preseason", "regular", "postseason"))
+    app.add_argument("--week", type=int, default=None)
+    app.add_argument("--year", type=int, default=None)
+    app.add_argument("--date", default=None, help="YYYYMMDD")
     app.add_argument(
         "--manifest",
-        required=True,
+        default=None,
         help='JSON: {"games":[{"game_id","state","props"}]} mapping slate ids '
              "to game-state and prop files",
     )

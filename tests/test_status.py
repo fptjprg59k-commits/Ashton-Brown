@@ -517,3 +517,122 @@ def test_app_has_no_board_when_nothing_is_at_halftime():
     assert "No game is at halftime right now" in out
     # No board *element* - the class still appears in the stylesheet.
     assert '<section class="view gameview"' not in out
+
+
+# --------------------------------------------------------------------------
+# Live mode wiring
+# --------------------------------------------------------------------------
+
+
+def test_live_mode_fetches_state_only_for_games_at_the_break(monkeypatch, tmp_path):
+    """--live should pull the slate, then each halftime game's box score.
+
+    The HTTP itself cannot be exercised here, so the provider is stubbed and
+    this asserts the wiring: which games get fetched, and that a board is built
+    from what comes back.
+    """
+    import nflprops.cli as cli
+    from nflprops.providers import espn as espn_mod
+    from nflprops.serde import load_game
+
+    root = os.path.dirname(os.path.dirname(__file__))
+    fetched = []
+
+    class StubProvider:
+        def dashboard(self, **kw):
+            return _fixture_dashboard()
+
+        def fetch(self, game_id):
+            fetched.append(game_id)
+            return load_game(
+                os.path.join(root, "fixtures", "game_bal_cin_halftime.json")
+            )
+
+    monkeypatch.setattr(espn_mod, "ESPNProvider", StubProvider)
+
+    out = tmp_path / "live.html"
+    args = cli.build_parser().parse_args([
+        "app", "--live",
+        "--props-for", f"401780001={os.path.join(root, 'fixtures', 'props_paste.txt')}",
+        "--sims", "600", "--out", str(out),
+    ])
+    assert args.func(args) == 0
+
+    # Only the game that was named got fetched - not the whole slate.
+    assert fetched == ["401780001"]
+    page = out.read_text()
+    assert '<a class="card" href="#game-401780001"' in page
+
+
+def test_props_shorthand_is_refused_when_it_would_be_ambiguous(monkeypatch, capsys):
+    """Two games at the break and a bare --props must not guess."""
+    import nflprops.cli as cli
+    from nflprops.providers import espn as espn_mod
+
+    class StubProvider:
+        def dashboard(self, **kw):
+            return _fixture_dashboard()
+
+        def fetch(self, game_id):  # pragma: no cover - must not be reached
+            raise AssertionError("should not fetch when the mapping is ambiguous")
+
+    monkeypatch.setattr(espn_mod, "ESPNProvider", StubProvider)
+
+    args = cli.build_parser().parse_args(["app", "--live", "--props", "x.txt"])
+    assert args.func(args) == 2
+    err = capsys.readouterr().err
+    assert "ambiguous" in err
+    # It names the candidates so the next command is obvious.
+    assert "401780001" in err and "401780002" in err
+
+
+def test_props_shorthand_says_so_when_nothing_is_at_the_break(monkeypatch, capsys):
+    import nflprops.cli as cli
+    from nflprops.dashboard import Dashboard as D
+    from nflprops.providers import espn as espn_mod
+
+    class StubProvider:
+        def dashboard(self, **kw):
+            return D(games=[_card(GameStatus.LIVE, "a", 7, 3)])
+
+    monkeypatch.setattr(espn_mod, "ESPNProvider", StubProvider)
+
+    args = cli.build_parser().parse_args(["app", "--live", "--props", "x.txt"])
+    assert args.func(args) == 4
+    assert "Nothing is at halftime" in capsys.readouterr().err
+
+
+def test_one_unreachable_box_score_does_not_lose_the_other_game(monkeypatch, tmp_path):
+    """A single failed fetch costs that game only, not the whole page."""
+    import nflprops.cli as cli
+    from nflprops.providers import espn as espn_mod
+    from nflprops.providers.base import ProviderError
+    from nflprops.serde import load_game
+
+    root = os.path.dirname(os.path.dirname(__file__))
+
+    class StubProvider:
+        def dashboard(self, **kw):
+            return _fixture_dashboard()
+
+        def fetch(self, game_id):
+            if game_id == "401780001":
+                raise ProviderError("boom")
+            return load_game(
+                os.path.join(root, "fixtures", "game_gb_sea_halftime.json")
+            )
+
+    monkeypatch.setattr(espn_mod, "ESPNProvider", StubProvider)
+
+    out = tmp_path / "live.html"
+    fx = lambda n: os.path.join(root, "fixtures", n)
+    args = cli.build_parser().parse_args([
+        "app", "--live",
+        "--props-for", f"401780001={fx('props_paste.txt')}",
+        "--props-for", f"401780002={fx('props_gb_sea.txt')}",
+        "--sims", "600", "--out", str(out),
+    ])
+    assert args.func(args) == 0
+    page = out.read_text()
+    assert "#game-401780002" in page
+    assert 'href="#game-401780001"' not in page
