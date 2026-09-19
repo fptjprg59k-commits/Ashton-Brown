@@ -1,0 +1,675 @@
+{
+  "meta": {
+    "game_id": "2026-w2-ind-kc",
+    "season": 2026,
+    "week": 2,
+    "label": "Colts at Chiefs",
+    "kickoff_local": "Sunday, September 20, 2026 - 7:20 PM CT",
+    "kickoff_et": "8:20 PM ET",
+    "network": "NBC / Peacock",
+    "venue": {
+      "name": "GEHA Field at Arrowhead Stadium",
+      "city": "Kansas City, MO",
+      "roof": "open",
+      "surface": "grass"
+    },
+    "market": {
+      "favorite": "KC",
+      "spread": 6.5,
+      "total": 46.5,
+      "total_open": 47.5,
+      "moneyline": {
+        "KC": -330,
+        "IND": 265
+      }
+    },
+    "series": "Colts lead the all-time series 18-11 across 29 meetings (5 postseason). Mahomes is 1-2 as a starter against Indianapolis.",
+    "games_played": 1
+  },
+  "weather": {
+    "forecast": "Thunderstorms in the area through the evening",
+    "temp_f": 70,
+    "wind_mph": 14,
+    "gust_mph": 19,
+    "precip_chance": 0.67,
+    "humidity": 0.78,
+    "note": "High 77 / low 66 with storms moving through Sunday. A wet ball and 9-19 mph wind is a real, if modest, thumb on the scale toward the run and the short game. Not a wind game that kills the deep ball outright.",
+    "confidence": "forecast"
+  },
+  "teams": {
+    "KC": {
+      "name": "Kansas City Chiefs",
+      "abbr": "KC",
+      "record": "1-0",
+      "home": true,
+      "color": "#c8102e",
+      "color_dark": "#ef4a63",
+      "coach": "Andy Reid",
+      "play_caller": "Andy Reid",
+      "dc": "Steve Spagnuolo",
+      "qb": "Patrick Mahomes",
+      "last_game": "Beat Denver 31-10 (Monday, Sept 14)",
+      "rest": {
+        "days": 6,
+        "short_week": true,
+        "travel_miles": 0,
+        "tz_shift": 0,
+        "note": "Monday night into Sunday night is a six-day turnaround. Kansas City ranks 28th in full-season rest differential at -2 and eats the short week here."
+      },
+      "offense": {
+        "scoring": {
+          "label": "Scoring",
+          "prior": 15,
+          "current": 6,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "15th in points per game in 2025, the worst mark of the Mahomes era. 31 points in the opener."
+        },
+        "pass": {
+          "label": "Pass offense",
+          "prior": 17,
+          "current": 26,
+          "prior_src": "estimate",
+          "current_src": "measured",
+          "detail": "184 passing yards in Week 1. Mahomes threw 2 TDs but the passing game was, by the beat's own description, close to non-existent in the first half."
+        },
+        "rush": {
+          "label": "Run offense",
+          "prior": 21,
+          "current": 3,
+          "prior_src": "estimate",
+          "current_src": "measured",
+          "detail": "Kenneth Walker III went 23-173-2 with 14 broken tackles, the most by any back in a game since 2022. Most rushing yards by a Chief since Jamaal Charles in 2012.",
+          "carryover": 0.25,
+          "carryover_note": "Kenneth Walker III replaces the entire 2025 backfield behind a line that was already good at run blocking. Last year's team rushing rank describes a different personnel group, so it is given only a quarter of its usual weight."
+        },
+        "red_zone": {
+          "label": "Red zone",
+          "prior": 18,
+          "current": 8,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Mahomes scrambled 15 yards for a red zone touchdown on the opening drive."
+        },
+        "third_down": {
+          "label": "3rd down",
+          "prior": 16,
+          "current": 14,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "explosive": {
+          "label": "Explosive plays",
+          "prior": 22,
+          "current": 12,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Explosiveness in 2025 came almost entirely from Worthy. In Week 1 it came from Walker on the ground.",
+          "carryover": 0.45,
+          "carryover_note": "Explosives in 2025 came from Worthy downfield. They now also come from a back who broke 14 tackles in one game."
+        },
+        "ball_security": {
+          "label": "Ball security",
+          "prior": 11,
+          "current": 6,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Clean opener."
+        },
+        "pass_protect": {
+          "label": "Pass protection",
+          "prior": 24,
+          "current": 18,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Mahomes was sacked 34 times in 14 games in 2025. The line was porous and heavily penalized. LT Josh Simmons is out again."
+        }
+      },
+      "defense": {
+        "scoring": {
+          "label": "Scoring defense",
+          "prior": 8,
+          "current": 3,
+          "prior_src": "estimate",
+          "current_src": "measured",
+          "detail": "Allowed 10 points to Denver."
+        },
+        "pass": {
+          "label": "Pass defense",
+          "prior": 7,
+          "current": 3,
+          "prior_src": "estimate",
+          "current_src": "measured",
+          "detail": "Held Bo Nix to 131 yards on 28 attempts."
+        },
+        "rush": {
+          "label": "Run defense",
+          "prior": 27,
+          "current": 14,
+          "prior_src": "measured",
+          "current_src": "estimate",
+          "detail": "27th in rush defense DVOA in 2025. This is the soft spot and it has been for two years."
+        },
+        "red_zone": {
+          "label": "Red zone defense",
+          "prior": 8,
+          "current": 4,
+          "prior_src": "measured",
+          "current_src": "estimate",
+          "detail": "8th in the league at keeping teams out of the end zone inside the 20 in 2025."
+        },
+        "third_down": {
+          "label": "3rd down defense",
+          "prior": 29,
+          "current": 6,
+          "prior_src": "measured",
+          "current_src": "estimate",
+          "detail": "Allowed conversions on 44% of third downs in 2025, 29th. The single loudest weakness on the 2025 defense."
+        },
+        "pressure": {
+          "label": "Pass rush",
+          "prior": 10,
+          "current": 1,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "10th in pressure rate in 2025 but only 35 sacks. Generated a 45.5% pressure rate against Denver on a 30.3% blitz rate."
+        },
+        "takeaways": {
+          "label": "Takeaways",
+          "prior": 14,
+          "current": 4,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Forced three Nix fumbles and an interception in the opener."
+        },
+        "tackling": {
+          "label": "Tackling",
+          "prior": 2,
+          "current": 8,
+          "prior_src": "measured",
+          "current_src": "estimate",
+          "detail": "Only New England missed fewer tackles than Kansas City's 75 in 2025."
+        }
+      },
+      "carryover": {
+        "offense": 0.65,
+        "defense": 0.85,
+        "note": "Offense carries least: new lead back, Mahomes a year off an ACL tear, and a deliberate camp shift back to under-center personnel. Defense is continuous - same coordinator, same core."
+      },
+      "tendencies": {
+        "neutral_pass_rate": {
+          "label": "Neutral pass rate",
+          "prior": 0.61,
+          "current": 0.49,
+          "src": "measured",
+          "detail": "Ran on 51% of first-half snaps against Denver, the 5th-highest run rate of any Mahomes start."
+        },
+        "play_action": {
+          "label": "Play action rate",
+          "prior": 0.26,
+          "current": 0.3,
+          "src": "estimate"
+        },
+        "deep_rate": {
+          "label": "Deep throw rate (20+)",
+          "prior": 0.11,
+          "current": 0.08,
+          "src": "estimate"
+        },
+        "shotgun_rate": {
+          "label": "Shotgun rate",
+          "prior": 0.72,
+          "current": 0.58,
+          "src": "estimate",
+          "detail": "Camp priority was returning to an offense built from under center."
+        },
+        "seconds_per_play": {
+          "label": "Seconds per play",
+          "prior": 27.5,
+          "current": 29.0,
+          "src": "estimate"
+        },
+        "def_blitz_rate": {
+          "label": "Blitz rate (defense)",
+          "prior": 0.34,
+          "current": 0.303,
+          "src": "measured",
+          "detail": "2nd in the NFL in blitz rate in 2025, top five in each of the last three years under Spagnuolo."
+        },
+        "def_man_rate": {
+          "label": "Man coverage rate",
+          "prior": 0.32,
+          "current": 0.34,
+          "src": "estimate"
+        },
+        "def_pressure_rate": {
+          "label": "Pressure rate",
+          "prior": 0.36,
+          "current": 0.455,
+          "src": "measured"
+        }
+      },
+      "players": [
+        {
+          "name": "Patrick Mahomes",
+          "pos": "QB",
+          "note": "First full season back from ACL surgery. 184 yards and 2 TDs plus a 15-yard rushing score in the opener; found rhythm in the second half."
+        },
+        {
+          "name": "Kenneth Walker III",
+          "pos": "RB",
+          "snap_share": 0.7,
+          "touches": 26,
+          "detail": "23-173-2 rushing, 3-18 receiving in his Kansas City debut. 14 broken tackles. The Chiefs finally have a back who can punish the light boxes this offense creates.",
+          "src": "measured"
+        },
+        {
+          "name": "Rashee Rice",
+          "pos": "WR",
+          "target_share": 0.265,
+          "adot": 4.9,
+          "routes_per_game": 32,
+          "tprr": 0.24,
+          "detail": "26.5% target share across his eight full games in 2025 at a 4.9 aDOT. He is the short-area, after-catch engine, not the field-stretcher.",
+          "src": "measured target share and aDOT; routes and TPRR estimated"
+        },
+        {
+          "name": "Travis Kelce",
+          "pos": "TE",
+          "target_share": 0.185,
+          "adot": 7.5,
+          "routes_per_game": 30,
+          "tprr": 0.21,
+          "detail": "18.5% target share in 2025. Still the trusted middle-of-field and third-down answer.",
+          "src": "measured target share; aDOT and rates estimated"
+        },
+        {
+          "name": "Xavier Worthy",
+          "pos": "WR",
+          "target_share": 0.17,
+          "adot": 12.5,
+          "routes_per_game": 29,
+          "tprr": 0.16,
+          "detail": "17% target share at a 12.5 aDOT - the vertical element. Cleared a sprained shoulder and is not on the final report.",
+          "src": "measured target share and aDOT; rates estimated"
+        }
+      ],
+      "injuries": [
+        {
+          "player": "Josh Simmons",
+          "pos": "LT",
+          "status": "out",
+          "injury": "back",
+          "units": [
+            "offense"
+          ],
+          "axes": {
+            "pass_protect": 1.0,
+            "pass": 0.35
+          },
+          "impact": 0.75,
+          "note": "Starting left tackle. Missed Week 1 as well. The Chiefs protect Mahomes' blind side with a replacement against a coordinator who sells blitz on nearly every down."
+        },
+        {
+          "player": "Chamarri Conner",
+          "pos": "SS",
+          "status": "out",
+          "injury": "knee",
+          "units": [
+            "defense"
+          ],
+          "axes": {
+            "pass": 0.7,
+            "rush": 0.3
+          },
+          "impact": 0.4,
+          "note": "Starting strong safety - a real loss for a defense that uses safety rotation to disguise its pressure."
+        },
+        {
+          "player": "Chris Jones",
+          "pos": "DT",
+          "status": "questionable",
+          "injury": "calf",
+          "units": [
+            "defense"
+          ],
+          "axes": {
+            "pressure": 1.0,
+            "rush": 0.7,
+            "third_down": 0.5
+          },
+          "impact": 0.8,
+          "note": "Limited in all three practices. The single most important defender in this matchup: he is the interior rush that makes the blitz work and the anchor against a Colts run game that just went for 98 on 19."
+        },
+        {
+          "player": "Mansoor Delane",
+          "pos": "CB",
+          "status": "questionable",
+          "injury": "shoulder",
+          "units": [
+            "defense"
+          ],
+          "axes": {
+            "pass": 1.0,
+            "explosive": 0.6
+          },
+          "impact": 0.35,
+          "note": "Two full practices then limited Friday. Matters more than usual with a 20.0-aDOT receiver on the other side."
+        }
+      ]
+    },
+    "IND": {
+      "name": "Indianapolis Colts",
+      "abbr": "IND",
+      "record": "0-1",
+      "home": false,
+      "color": "#002c5f",
+      "color_dark": "#6f9fe0",
+      "coach": "Shane Steichen",
+      "play_caller": "Shane Steichen",
+      "dc": "Lou Anarumo",
+      "qb": "Daniel Jones",
+      "last_game": "Lost 41-23 at Baltimore (Sunday, Sept 13)",
+      "rest": {
+        "days": 7,
+        "short_week": false,
+        "travel_miles": 485,
+        "tz_shift": -1,
+        "note": "Normal week. A short flight to Kansas City and a one-hour gain going west, which is the easy direction. No travel penalty worth pricing."
+      },
+      "offense": {
+        "scoring": {
+          "label": "Scoring",
+          "prior": 8,
+          "current": 18,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "27.4 points per game in 2025, 8th. 2nd in the NFL at 2.67 points per drive."
+        },
+        "pass": {
+          "label": "Pass offense",
+          "prior": 9,
+          "current": 30,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "227.8 passing yards per game in 2025, 9th. Jones was 3rd in yards per attempt (8.1), 4th in completion rate, 6th in passer rating. Then 166 yards on 31 attempts in Baltimore.",
+          "carryover": 0.7,
+          "carryover_note": "Same quarterback, coordinator and route concepts, but Michael Pittman Jr.'s volume has moved to Downs, Warren and Keenan Allen."
+        },
+        "rush": {
+          "label": "Run offense",
+          "prior": 4,
+          "current": 11,
+          "prior_src": "estimate",
+          "current_src": "measured",
+          "detail": "Jonathan Taylor ran for 1,585 yards and 18 touchdowns in 2025. He went 19-98-2 in the opener and was efficient even as the game got away."
+        },
+        "red_zone": {
+          "label": "Red zone",
+          "prior": 3,
+          "current": 12,
+          "prior_src": "measured",
+          "current_src": "estimate",
+          "detail": "Scored on 71 consecutive red zone possessions from Week 7 of 2024 through Week 10 of 2025 - the longest streak since 1993."
+        },
+        "third_down": {
+          "label": "3rd down",
+          "prior": 12,
+          "current": 24,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "explosive": {
+          "label": "Explosive plays",
+          "prior": 2,
+          "current": 28,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "8th in yards per play in 2025 and Alec Pierce led the entire league in target air yards."
+        },
+        "ball_security": {
+          "label": "Ball security",
+          "prior": 9,
+          "current": 27,
+          "prior_src": "estimate",
+          "current_src": "measured",
+          "detail": "Jones threw an interception to Roquan Smith and Taylor was stripped by Marlon Humphrey after a catch."
+        },
+        "pass_protect": {
+          "label": "Pass protection",
+          "prior": 14,
+          "current": 29,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "14th in pass block win rate in 2025 with the 5th-most continuous starting five in football. Then Jones took nine QB hits and two sacks against Jesse Minter's pressure package."
+        }
+      },
+      "defense": {
+        "scoring": {
+          "label": "Scoring defense",
+          "prior": 17,
+          "current": 31,
+          "prior_src": "estimate",
+          "current_src": "measured",
+          "detail": "Allowed 41 points and 506 yards to Baltimore."
+        },
+        "pass": {
+          "label": "Pass defense",
+          "prior": 20,
+          "current": 27,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "rush": {
+          "label": "Run defense",
+          "prior": 4,
+          "current": 32,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "The contradiction of this game. 2nd in yards per carry allowed (3.87) and 7th in rushing yards allowed (101.9) in 2025 - then 202 yards and three scores to Derrick Henry at 6.0 a pop."
+        },
+        "red_zone": {
+          "label": "Red zone defense",
+          "prior": 19,
+          "current": 29,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "third_down": {
+          "label": "3rd down defense",
+          "prior": 18,
+          "current": 28,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "pressure": {
+          "label": "Pass rush",
+          "prior": 12,
+          "current": 24,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Anarumo manufactures pressure with design rather than with a dominant front."
+        },
+        "takeaways": {
+          "label": "Takeaways",
+          "prior": 10,
+          "current": 24,
+          "prior_src": "measured",
+          "current_src": "estimate",
+          "detail": "Recorded a takeaway in a league-leading 15 games in 2025, 10th in interceptions (14), tied 10th in total takeaways (21)."
+        },
+        "tackling": {
+          "label": "Tackling",
+          "prior": 18,
+          "current": 31,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Henry was not being tackled on first contact. Communication breakdowns, by the team's own account, not just missed tackles."
+        }
+      },
+      "carryover": {
+        "offense": 0.75,
+        "defense": 0.8,
+        "note": "Both units keep their coordinator and most of their personnel. The offense loses Michael Pittman Jr. and adds Keenan Allen; the defense has moved communication duties to Akeem Davis-Gaither after the Week 1 breakdowns."
+      },
+      "tendencies": {
+        "neutral_pass_rate": {
+          "label": "Neutral pass rate",
+          "prior": 0.55,
+          "current": 0.62,
+          "src": "estimate",
+          "detail": "Steichen is run-leaning when neutral. Week 1 pass rate was inflated by a two-score deficit for most of the second half."
+        },
+        "play_action": {
+          "label": "Play action rate",
+          "prior": 0.31,
+          "current": 0.24,
+          "src": "estimate",
+          "detail": "Play action is central to the design and it is the first thing a deficit takes away."
+        },
+        "deep_rate": {
+          "label": "Deep throw rate (20+)",
+          "prior": 0.14,
+          "current": 0.11,
+          "src": "estimate",
+          "detail": "Pierce alone saw 52 of his 84 targets travel 15+ yards downfield in 2025."
+        },
+        "shotgun_rate": {
+          "label": "Shotgun rate",
+          "prior": 0.64,
+          "current": 0.71,
+          "src": "estimate"
+        },
+        "seconds_per_play": {
+          "label": "Seconds per play",
+          "prior": 28.5,
+          "current": 26.5,
+          "src": "estimate"
+        },
+        "def_blitz_rate": {
+          "label": "Blitz rate (defense)",
+          "prior": 0.3,
+          "current": 0.33,
+          "src": "estimate",
+          "detail": "Anarumo blitzed 21.7% in his last Cincinnati season and has run rates north of 40% in single games with Indianapolis. He sells blitz constantly so that a true zero pressure goes unrecognized."
+        },
+        "def_man_rate": {
+          "label": "Man coverage rate",
+          "prior": 0.27,
+          "current": 0.27,
+          "src": "measured",
+          "detail": "Up from roughly 13-16% under the previous staff. Anarumo attaches man to his five-man pressures with a single high safety."
+        },
+        "def_pressure_rate": {
+          "label": "Pressure rate",
+          "prior": 0.33,
+          "current": 0.3,
+          "src": "estimate"
+        }
+      },
+      "players": [
+        {
+          "name": "Daniel Jones",
+          "pos": "QB",
+          "note": "Back from the torn Achilles that ended his 2025. A career-best 100.2 rating and 8.1 yards per attempt over 13 starts in 2025; 19-of-31 for 166 with a pick and nine QB hits in the opener."
+        },
+        {
+          "name": "Jonathan Taylor",
+          "pos": "RB",
+          "snap_share": 0.89,
+          "touches": 20,
+          "detail": "89% snap share in Week 1 - no committee to speak of with Giddens inactive. 323-1585-18 rushing plus 46 catches in 2025.",
+          "src": "measured"
+        },
+        {
+          "name": "Alec Pierce",
+          "pos": "WR",
+          "target_share": 0.2,
+          "adot": 20.0,
+          "routes_per_game": 30,
+          "tprr": 0.17,
+          "detail": "Led the NFL in target air yards in 2025. A 20.0 aDOT and 21.3 yards per reception, 2nd in the league. 62% of his 84 targets travelled 15+ yards; he saw two targets all year shorter than five.",
+          "src": "measured aDOT, yards per catch and air yards; share and rates estimated"
+        },
+        {
+          "name": "Tyler Warren",
+          "pos": "TE",
+          "target_share": 0.19,
+          "adot": 7.0,
+          "routes_per_game": 31,
+          "tprr": 0.2,
+          "detail": "76-817-4 as a rookie in 2025. In line for a larger share and more red zone work with Michael Pittman Jr. gone.",
+          "src": "measured 2025 receiving line; share and rates estimated"
+        },
+        {
+          "name": "Josh Downs",
+          "pos": "WR",
+          "target_share": 0.18,
+          "adot": 8.0,
+          "routes_per_game": 27,
+          "tprr": 0.21,
+          "detail": "Playing time dipped in 2025 (3.63 catches per game, a career low) but he is the natural inheritor of the vacated underneath volume.",
+          "src": "measured catches per game; share and rates estimated"
+        },
+        {
+          "name": "Keenan Allen",
+          "pos": "WR",
+          "target_share": 0.14,
+          "adot": 8.5,
+          "routes_per_game": 24,
+          "tprr": 0.19,
+          "detail": "Signed this offseason to replace Pittman's possession role.",
+          "src": "estimate"
+        }
+      ],
+      "injuries": [
+        {
+          "player": "Ashton Dulin",
+          "pos": "WR",
+          "status": "out",
+          "injury": "ankle",
+          "units": [
+            "offense"
+          ],
+          "axes": {},
+          "impact": 0.1,
+          "note": "Depth receiver and core special teamer. Did not practice all week. Minimal offensive consequence."
+        },
+        {
+          "player": "D.J. Giddens",
+          "pos": "RB",
+          "status": "questionable",
+          "injury": "knee",
+          "units": [
+            "offense"
+          ],
+          "axes": {
+            "rush": 1.0
+          },
+          "impact": 0.2,
+          "note": "Missed Thursday, full Friday. Was inactive in Week 1, which is how Taylor ended up at an 89% snap share. If he is out again, Taylor is a near-every-down back on a short field in bad weather."
+        }
+      ]
+    }
+  },
+  "narrative_flags": [
+    {
+      "kind": "contradiction",
+      "team": "IND",
+      "headline": "The run defense signal is genuinely split",
+      "body": "Indianapolis finished 2025 allowing 3.87 yards per carry, second-best in football, and 101.9 rushing yards per game, seventh. One week later Derrick Henry went for 144 on 24 carries inside a 202-yard team rushing day. One of those two numbers is lying about this team and the honest answer is that the truth sits between them. The Colts themselves blamed pre-snap communication, not personnel, and moved the green-dot duties to Akeem Davis-Gaither this week."
+    },
+    {
+      "kind": "trend",
+      "team": "KC",
+      "headline": "Kansas City has decided to be a running team",
+      "body": "Reid ran on 51% of first-half snaps in Week 1, the fifth-highest run rate of any Mahomes start in nine years. That is not a game-script artifact - the Chiefs led the whole way. It is a stated camp priority to rebuild the offense from under center around a back who can actually win one-on-one."
+    },
+    {
+      "kind": "scheme",
+      "team": "IND",
+      "headline": "Anarumo will bring pressure. That is the question of the night.",
+      "body": "The Colts sell blitz on a high share of snaps and attach man coverage behind five-man pressure with one deep safety. Against most quarterbacks that is how you steal possessions. Against Mahomes, off-schedule, it is historically how you give up the play that decides the game - and Kansas City's answer receiver is Rashee Rice at a 4.9 aDOT, which is the exact throw a blitz surrenders."
+    }
+  ]
+}

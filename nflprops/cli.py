@@ -10,6 +10,7 @@ network access and are documented in the README.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from typing import List, Optional, Sequence
 
@@ -443,6 +444,71 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_matchup(args: argparse.Namespace) -> int:
+    from .matchup import load_matchup
+    from .matchup_report import render_matchup_html, render_matchup_terminal
+
+    m = load_matchup(args.game)
+
+    if args.format == "json":
+        out = json.dumps(
+            {
+                "meta": m.meta,
+                "weather": m.weather,
+                "scripts": {
+                    a: {
+                        "neutral_pass_rate": round(s.neutral_pass_rate, 4),
+                        "projected_pass_rate": round(s.projected_pass_rate, 4),
+                        "projected_plays": round(s.projected_plays, 1),
+                        "projected_points": round(s.projected_points, 2),
+                        "adjustments": [
+                            {"name": n, "value": round(v, 4), "why": w}
+                            for n, v, w in s.adjustments
+                        ],
+                    }
+                    for a, s in m.scripts.items()
+                },
+                "leverage": [
+                    {
+                        "attacker": l.attacker,
+                        "defender": l.defender,
+                        "axis": l.axis.key,
+                        "label": l.axis.label,
+                        "offense_rank": round(l.off_metric.adjusted, 2),
+                        "defense_rank": round(l.def_metric.adjusted, 2),
+                        "edge": round(l.edge, 4),
+                        "exposure": round(l.exposure, 4),
+                        "score": round(l.score, 3),
+                        "grade": l.grade,
+                    }
+                    for l in m.top_exploits(99)
+                ],
+                "open_questions": [
+                    {
+                        "team": t.abbr, "unit": unit, "metric": mm.label,
+                        "prior": mm.prior, "current": mm.current,
+                        "blended": round(mm.adjusted, 2),
+                        "disagreement": round(mm.disagreement, 3),
+                    }
+                    for t, unit, mm in m.open_questions(8)
+                ],
+            },
+            indent=2,
+        )
+    elif args.format == "html":
+        out = render_matchup_html(m, title=args.title)
+    else:
+        out = render_matchup_terminal(m)
+
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as fh:
+            fh.write(out)
+        print(f"wrote {args.out}", file=sys.stderr)
+    else:
+        print(out)
+    return 0
+
+
 # --------------------------------------------------------------------------
 # Parser
 # --------------------------------------------------------------------------
@@ -567,6 +633,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="ISO timestamp to treat as the current time (for countdowns)",
     )
     dash.set_defaults(func=cmd_dashboard)
+
+    mu = sub.add_parser(
+        "matchup",
+        help="pre-game report: where two teams' strengths meet the other's holes",
+    )
+    mu.add_argument("--game", required=True,
+                    help="matchup JSON, e.g. fixtures/matchup_ind_kc_2026w2.json")
+    mu.add_argument("--format", default="text", choices=("text", "html", "json"))
+    mu.add_argument("--out", default=None, help="write to a file instead of stdout")
+    mu.add_argument("--title", default=None, help="page title for --format html")
+    mu.set_defaults(func=cmd_matchup)
 
     sb = sub.add_parser("scoreboard", help="list today's games (needs network)")
     sb.set_defaults(func=cmd_scoreboard)
