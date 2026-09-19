@@ -148,8 +148,14 @@ nflprops matchup --game fixtures/matchup_ind_kc_2026w2.json \
 nflprops matchup --game fixtures/matchup_ind_kc_2026w2.json --format json
 ```
 
-The bundled game is **Colts at Chiefs, Week 2 of 2026**. To project a different
-one, copy that file and edit it. Nothing else changes.
+Two games ship with the repo:
+
+| Game | File |
+| --- | --- |
+| Colts at Chiefs, Week 2 2026 | `fixtures/matchup_ind_kc_2026w2.json` |
+| Vikings at Bears, Week 2 2026 | `fixtures/matchup_min_chi_2026w2.json` |
+
+To project a different one, copy either file and edit it. Nothing else changes.
 
 ### What comes out
 
@@ -176,6 +182,13 @@ attempts <- dropbacks - sacks - scrambles
 yards    <- attempts x matchup-adjusted yards per attempt
 players  <- team totals split by usage share, priced by efficiency
 ```
+
+**A designed quarterback run is a run.** Only scrambles come out of the passing
+game; called keepers come out of the carry pool, the same place a handoff would.
+`designed_run_share` on a quarterback's profile sets the split. Charging every
+quarterback carry to dropbacks costs a mobile starter several attempts he would
+actually throw, which is exactly backwards for the offenses that run him on
+purpose.
 
 **A rank is a blend, not a number.** In Week 2, this season is one game of
 evidence and last season is seventeen. Every metric carries both and they

@@ -1,0 +1,745 @@
+{
+  "meta": {
+    "game_id": "2026-w2-min-chi",
+    "season": 2026,
+    "week": 2,
+    "label": "Vikings at Bears",
+    "kickoff_local": "Sunday, September 20, 2026 - 12:00 PM CT",
+    "kickoff_et": "1:00 PM ET",
+    "network": "FOX",
+    "venue": {
+      "name": "Soldier Field",
+      "city": "Chicago, IL",
+      "roof": "open",
+      "surface": "grass"
+    },
+    "market": {
+      "favorite": "CHI",
+      "spread": 4.5,
+      "total": 47.5,
+      "total_open": 47.5,
+      "moneyline": {
+        "CHI": -200,
+        "MIN": 185
+      }
+    },
+    "series": "An NFC North meeting between two 1-0 teams. Chicago won the division last season at 11-6 and opened 2026 with the highest-scoring season opener in NFL history. The line moved roughly 2.5 points toward the Bears once Kyler Murray was ruled out.",
+    "games_played": 1,
+    "sources": [
+      {
+        "name": "ESPN - Bears 59, Panthers 37 (Week 1)",
+        "url": "https://www.espn.com/nfl/recap?gameId=401872661"
+      },
+      {
+        "name": "ESPN - Vikings 39, Packers 22 (Week 1)",
+        "url": "https://www.espn.com/nfl/recap?gameId=401872927"
+      },
+      {
+        "name": "Vikings.com - Final Week 2 injury report",
+        "url": "https://www.vikings.com/news/injury-report-week-2-chicago-bears-2026"
+      },
+      {
+        "name": "Chicago Bears - Swift and Monangai both go for 100",
+        "url": "https://www.chicagobears.com/news/what-a-start-d-andre-swift-kyle-monangai-post-100-yard-rushing-performances-in-historic-week-1-win"
+      },
+      {
+        "name": "KARE 11 - Blitz-heavy Vikings defense against Week 1's top offense",
+        "url": "https://www.kare11.com/article/sports/nfl/vikings/blitz-heavy-vikings-defense-against-top-offense-from-week-1/89-9c1d2d07-af0b-4648-94cb-e6194e93e2d2"
+      },
+      {
+        "name": "Chicago Sun-Times - Every fear about the Bears defense materialized",
+        "url": "https://chicago.suntimes.com/bears/2026/09/18/every-fear-about-bears-defense-materialized-in-season-opener-leaving-dc-dennis-allen-to-problem-solve"
+      }
+    ]
+  },
+  "weather": {
+    "forecast": "Rain through the morning, drizzle into the afternoon",
+    "temp_f": 66,
+    "wind_mph": 12,
+    "gust_mph": 27,
+    "precip_chance": 0.85,
+    "humidity": 0.88,
+    "note": "The heaviest weather factor of the week. Forecasters have the Chicago area in a 2-3 inch rainfall band, with a north wind of 11-13 mph gusting to 27. A noon kickoff puts the game squarely in the wettest part of the day. This is a thumb on the scale toward the run, toward the short game, and toward whoever handles the football better.",
+    "confidence": "forecast"
+  },
+  "teams": {
+    "CHI": {
+      "name": "Chicago Bears",
+      "abbr": "CHI",
+      "record": "1-0",
+      "home": true,
+      "color": "#0b162a",
+      "color_dark": "#7f9fd0",
+      "coach": "Ben Johnson",
+      "play_caller": "Ben Johnson",
+      "dc": "Dennis Allen",
+      "qb": "Caleb Williams",
+      "last_game": "Beat Carolina 59-37 (Sunday, Sept 13)",
+      "rest": {
+        "days": 7,
+        "short_week": false,
+        "travel_miles": 0,
+        "tz_shift": 0,
+        "note": "Normal week at home."
+      },
+      "offense": {
+        "scoring": {
+          "label": "Scoring",
+          "prior": 9,
+          "current": 1,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "441 points in 2025, 25.9 per game, 9th - up 131 points on the prior year and a jump from 28th to 9th. Then 59 on Carolina, the highest-scoring season opener in league history."
+        },
+        "pass": {
+          "label": "Pass offense",
+          "prior": 12,
+          "current": 9,
+          "prior_src": "estimate",
+          "current_src": "measured",
+          "detail": "261 passing yards and a 124.1 rating from Caleb Williams in the opener. Chicago went from 26th to 7th in offensive EPA per play in Ben Johnson's first season.",
+          "carryover": 0.65,
+          "carryover_note": "D.J. Moore was traded to Buffalo. The room is now Rome Odunze, Luther Burden III, veteran additions Kalif Raymond and Scotty Miller, and tight end Colston Loveland."
+        },
+        "rush": {
+          "label": "Run offense",
+          "prior": 3,
+          "current": 1,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "The third-best rushing attack in football in 2025 at 2,456 yards. D'Andre Swift and Kyle Monangai were the only back tandem in the league to each clear 750 yards. Then 291 rushing yards in Week 1 with both over 100 - Swift 18-124-3, Monangai 10-100-1."
+        },
+        "red_zone": {
+          "label": "Red zone",
+          "prior": 8,
+          "current": 1,
+          "prior_src": "estimate",
+          "current_src": "measured",
+          "detail": "Eight touchdowns on 552 total yards in the opener."
+        },
+        "third_down": {
+          "label": "3rd down",
+          "prior": 10,
+          "current": 4,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "explosive": {
+          "label": "Explosive plays",
+          "prior": 7,
+          "current": 2,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Williams added 65 rushing yards and two rushing scores, the first player in franchise history with 200-plus passing, two passing touchdowns, 50-plus rushing and two rushing scores in one game."
+        },
+        "ball_security": {
+          "label": "Ball security",
+          "prior": 14,
+          "current": 8,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "pass_protect": {
+          "label": "Pass protection",
+          "prior": 13,
+          "current": 10,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        }
+      },
+      "defense": {
+        "scoring": {
+          "label": "Scoring defense",
+          "prior": 23,
+          "current": 31,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "415 points allowed in 2025, 24.4 per game, 23rd. Then 37 points and 478 yards to Carolina in a game Chicago led comfortably throughout."
+        },
+        "pass": {
+          "label": "Pass defense",
+          "prior": 24,
+          "current": 30,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "The secondary gave up multiple long completions in Week 1. By the Sun-Times' account, every pre-season fear about this unit showed up at once."
+        },
+        "rush": {
+          "label": "Run defense",
+          "prior": 20,
+          "current": 22,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "red_zone": {
+          "label": "Red zone defense",
+          "prior": 22,
+          "current": 30,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "third_down": {
+          "label": "3rd down defense",
+          "prior": 21,
+          "current": 27,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "pressure": {
+          "label": "Pass rush",
+          "prior": 14,
+          "current": 3,
+          "prior_src": "estimate",
+          "current_src": "measured",
+          "detail": "The one genuinely good thing on tape: Chicago recorded 16 hurries in Week 1, the most of any defense in the league. The rush is real even when the coverage behind it is not."
+        },
+        "takeaways": {
+          "label": "Takeaways",
+          "prior": 16,
+          "current": 18,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "tackling": {
+          "label": "Tackling",
+          "prior": 22,
+          "current": 28,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        }
+      },
+      "carryover": {
+        "offense": 0.85,
+        "defense": 0.8,
+        "note": "Second year of the Ben Johnson offense with the same quarterback and play caller, minus D.J. Moore. Dennis Allen returns on defense with two rookies, Dillon Thieneman and Malik Muhammad, already in the rotation."
+      },
+      "tendencies": {
+        "neutral_pass_rate": {
+          "label": "Neutral pass rate",
+          "prior": 0.56,
+          "current": 0.47,
+          "src": "estimate",
+          "detail": "291 rushing yards against 261 passing in the opener. Ben Johnson calls the run when it is working and it worked all afternoon."
+        },
+        "play_action": {
+          "label": "Play action rate",
+          "prior": 0.33,
+          "current": 0.35,
+          "src": "estimate",
+          "detail": "Play action and motion are the spine of the Johnson offense, and a dominant run game is what makes them land."
+        },
+        "deep_rate": {
+          "label": "Deep throw rate (20+)",
+          "prior": 0.12,
+          "current": 0.13,
+          "src": "estimate"
+        },
+        "shotgun_rate": {
+          "label": "Shotgun rate",
+          "prior": 0.62,
+          "current": 0.58,
+          "src": "estimate"
+        },
+        "seconds_per_play": {
+          "label": "Seconds per play",
+          "prior": 27.0,
+          "current": 26.0,
+          "src": "estimate"
+        },
+        "def_blitz_rate": {
+          "label": "Blitz rate (defense)",
+          "prior": 0.26,
+          "current": 0.29,
+          "src": "estimate",
+          "detail": "Dennis Allen would rather win with four. In Week 1 that produced a league-high 16 hurries and 37 points allowed at the same time."
+        },
+        "def_man_rate": {
+          "label": "Man coverage rate",
+          "prior": 0.33,
+          "current": 0.35,
+          "src": "estimate"
+        },
+        "def_pressure_rate": {
+          "label": "Pressure rate",
+          "prior": 0.34,
+          "current": 0.42,
+          "src": "estimate"
+        }
+      },
+      "qb_profile": {
+        "name": "Caleb Williams",
+        "ypa": 7.7,
+        "completion_pct": 0.645,
+        "int_rate": 0.021,
+        "sack_rate": 0.07,
+        "rush_attempts": 6.0,
+        "rush_ypc": 5.2,
+        "rush_td_share": 0.3,
+        "src": "Week 1 measured: 269 passing yards, 65 rushing, two passing and two rushing touchdowns, 124.1 rating. Rate baselines are drawn from his 2025 season under Ben Johnson and are partly estimated.",
+        "designed_run_share": 0.45
+      },
+      "players": [
+        {
+          "name": "D'Andre Swift",
+          "pos": "RB",
+          "snap_share": 0.58,
+          "rush_share": 0.62,
+          "ypc": 4.7,
+          "target_share": 0.11,
+          "ypr": 8.8,
+          "gl_factor": 1.3,
+          "detail": "18-124-3 in the opener. A career year in 2025: 223-1087-9 rushing plus 34 catches for 299. The spark back, used when a two-yard gain needs to become twelve.",
+          "src": "measured 2025 and Week 1 lines; shares projected"
+        },
+        {
+          "name": "Kyle Monangai",
+          "pos": "RB",
+          "snap_share": 0.4,
+          "rush_share": 0.36,
+          "ypc": 4.6,
+          "target_share": 0.06,
+          "ypr": 9.0,
+          "gl_factor": 0.95,
+          "detail": "10-100-1 in the opener off 169-783-5 as a rookie. The primary pass-protecting back, which keeps him on the field in obvious throwing downs.",
+          "src": "measured 2025 and Week 1 lines; shares projected"
+        },
+        {
+          "name": "Rome Odunze",
+          "pos": "WR",
+          "snap_share": 0.82,
+          "target_share": 0.2,
+          "adot": 13.0,
+          "ypr": 15.0,
+          "routes_per_game": 30,
+          "tprr": 0.18,
+          "rz_factor": 1.1,
+          "detail": "Two catches on three targets for 52 yards in a game Chicago barely needed to throw. Expected to inherit the WR1 role with D.J. Moore in Buffalo; the volume has not shown up yet.",
+          "src": "measured Week 1 line; share projected"
+        },
+        {
+          "name": "Luther Burden III",
+          "pos": "WR",
+          "snap_share": 0.7,
+          "target_share": 0.19,
+          "adot": 8.5,
+          "ypr": 11.5,
+          "routes_per_game": 27,
+          "tprr": 0.21,
+          "rz_factor": 1.0,
+          "detail": "Five catches on five targets for 63 yards. Perfect efficiency on a full workload of short and intermediate looks.",
+          "src": "measured Week 1 line; share projected"
+        },
+        {
+          "name": "Kalif Raymond",
+          "pos": "WR",
+          "snap_share": 0.62,
+          "target_share": 0.18,
+          "adot": 7.0,
+          "ypr": 10.0,
+          "routes_per_game": 25,
+          "tprr": 0.22,
+          "rz_factor": 0.85,
+          "detail": "Team-high nine targets for eight catches and 84 yards in his Bears debut. A Ben Johnson signing who already knows the offense.",
+          "src": "measured Week 1 line; share projected"
+        },
+        {
+          "name": "Colston Loveland",
+          "pos": "TE",
+          "snap_share": 0.74,
+          "target_share": 0.15,
+          "adot": 8.0,
+          "ypr": 11.0,
+          "routes_per_game": 26,
+          "tprr": 0.17,
+          "rz_factor": 1.2,
+          "detail": "Only two targets in the opener despite a heavy snap share. In a rain game with a condensed field, that is the number most likely to move.",
+          "src": "measured Week 1 targets; share projected"
+        }
+      ],
+      "injuries": []
+    },
+    "MIN": {
+      "name": "Minnesota Vikings",
+      "abbr": "MIN",
+      "record": "1-0",
+      "home": false,
+      "color": "#4f2683",
+      "color_dark": "#a98ad6",
+      "coach": "Kevin O'Connell",
+      "play_caller": "Kevin O'Connell",
+      "dc": "Brian Flores",
+      "qb": "Carson Wentz",
+      "last_game": "Beat Green Bay 39-22 (Sunday, Sept 13)",
+      "rest": {
+        "days": 7,
+        "short_week": false,
+        "travel_miles": 350,
+        "tz_shift": 0,
+        "note": "Normal week, a short flight inside the division and no time change. No travel penalty worth pricing."
+      },
+      "offense": {
+        "scoring": {
+          "label": "Scoring",
+          "prior": 26,
+          "current": 4,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "26th in points in 2025. Then 39 on Green Bay - but 29 of them came unanswered after trailing 22-10 in the third, against a defense that had stopped caring about the middle of the field."
+        },
+        "pass": {
+          "label": "Pass offense",
+          "prior": 28,
+          "current": 26,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "28th in yards and 28th in EPA per play in 2025, on the fifth-fewest pass attempts in the league (508). Carson Wentz threw for 133 yards in relief in Week 1 - three touchdowns, but 133 yards.",
+          "carryover": 0.45,
+          "carryover_note": "Almost nothing about this passing offense is last year's. Kyler Murray arrived and is now concussed, Carson Wentz is starting, Jauan Jennings arrived and is out, and J.J. McCarthy is in the room."
+        },
+        "rush": {
+          "label": "Run offense",
+          "prior": 18,
+          "current": 14,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "A -12.9 rush EPA in 2025 ranked 15th. Minnesota closed that season on a five-game winning streak in which they ran more than they threw in four of the five.",
+          "carryover": 0.4,
+          "carryover_note": "Jordan Mason and Aaron Jones split this backfield near fifty-fifty. Mason fractured his thumb in Week 1 and is on injured reserve for at least four games."
+        },
+        "red_zone": {
+          "label": "Red zone",
+          "prior": 24,
+          "current": 6,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Wentz threw three touchdowns on 19 attempts in relief, two of them to Justin Jefferson."
+        },
+        "third_down": {
+          "label": "3rd down",
+          "prior": 22,
+          "current": 15,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "explosive": {
+          "label": "Explosive plays",
+          "prior": 27,
+          "current": 18,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "ball_security": {
+          "label": "Ball security",
+          "prior": 20,
+          "current": 10,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "pass_protect": {
+          "label": "Pass protection",
+          "prior": 22,
+          "current": 16,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        }
+      },
+      "defense": {
+        "scoring": {
+          "label": "Scoring defense",
+          "prior": 7,
+          "current": 16,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "19.6 points allowed per game in 2025, 7th. Gave up 22 to Green Bay but shut them out over the final quarter and a half."
+        },
+        "pass": {
+          "label": "Pass defense",
+          "prior": 2,
+          "current": 24,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "158.5 passing yards allowed per game in 2025, second in football, and 15 passing touchdowns allowed, second fewest behind Philadelphia. Then Jordan Love threw for 387 and Christian Watson went for 147 and two scores."
+        },
+        "rush": {
+          "label": "Run defense",
+          "prior": 10,
+          "current": 12,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Third in total defense in 2025 at 282.6 yards per game, but the elite half of that was the pass defense. The run defense is the softer side of a very good unit."
+        },
+        "red_zone": {
+          "label": "Red zone defense",
+          "prior": 12,
+          "current": 14,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "third_down": {
+          "label": "3rd down defense",
+          "prior": 11,
+          "current": 16,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        },
+        "pressure": {
+          "label": "Pass rush",
+          "prior": 6,
+          "current": 8,
+          "prior_src": "estimate",
+          "current_src": "estimate",
+          "detail": "Pressure here is manufactured, not won one-on-one. Dallas Turner led the team with eight sacks in 2025 and Andrew Van Ginkel added seven."
+        },
+        "takeaways": {
+          "label": "Takeaways",
+          "prior": 10,
+          "current": 6,
+          "prior_src": "measured",
+          "current_src": "estimate",
+          "detail": "10th in takeaways in 2025."
+        },
+        "tackling": {
+          "label": "Tackling",
+          "prior": 12,
+          "current": 15,
+          "prior_src": "estimate",
+          "current_src": "estimate"
+        }
+      },
+      "carryover": {
+        "offense": 0.5,
+        "defense": 0.88,
+        "note": "The two units could not be less alike in continuity. The offense turned over its quarterback room, its top free-agent receiver and half its backfield. The defense is Brian Flores' fourth year running the same system with the same core."
+      },
+      "tendencies": {
+        "neutral_pass_rate": {
+          "label": "Neutral pass rate",
+          "prior": 0.52,
+          "current": 0.5,
+          "src": "measured",
+          "detail": "The fifth-fewest pass attempts in the NFL in 2025, and a season that ended with four run-heavy games in a five-game winning streak. O'Connell said the plan was to lean on the defense and run it."
+        },
+        "play_action": {
+          "label": "Play action rate",
+          "prior": 0.3,
+          "current": 0.28,
+          "src": "estimate"
+        },
+        "deep_rate": {
+          "label": "Deep throw rate (20+)",
+          "prior": 0.1,
+          "current": 0.09,
+          "src": "estimate"
+        },
+        "shotgun_rate": {
+          "label": "Shotgun rate",
+          "prior": 0.6,
+          "current": 0.66,
+          "src": "estimate"
+        },
+        "seconds_per_play": {
+          "label": "Seconds per play",
+          "prior": 29.0,
+          "current": 28.0,
+          "src": "estimate"
+        },
+        "def_blitz_rate": {
+          "label": "Blitz rate (defense)",
+          "prior": 0.487,
+          "current": 0.46,
+          "src": "measured",
+          "detail": "Minnesota leads the NFL in blitz rate at 48.7%. On early downs they pressure at 51.4%, which is 13.5 points clear of the second-highest team in football."
+        },
+        "def_man_rate": {
+          "label": "Man coverage rate",
+          "prior": 0.236,
+          "current": 0.25,
+          "src": "measured",
+          "detail": "76.4% zone coverage, the highest rate in the league. Flores brings extra rushers and drops into zone behind them rather than trusting man across the board."
+        },
+        "def_pressure_rate": {
+          "label": "Pressure rate",
+          "prior": 0.38,
+          "current": 0.36,
+          "src": "estimate"
+        }
+      },
+      "qb_profile": {
+        "name": "Carson Wentz",
+        "ypa": 7.2,
+        "completion_pct": 0.645,
+        "int_rate": 0.03,
+        "sack_rate": 0.075,
+        "rush_attempts": 2.5,
+        "rush_ypc": 2.5,
+        "rush_td_share": 0.1,
+        "src": "2025: 110 of 169 (65.1%) for 1,216 yards at 7.2 per attempt, six touchdowns and five interceptions across five starts before season-ending shoulder surgery. Week 1 in relief: 12 of 19 for 133 and three scores. Starting here with Kyler Murray in concussion protocol.",
+        "designed_run_share": 0.1
+      },
+      "players": [
+        {
+          "name": "Justin Jefferson",
+          "pos": "WR",
+          "snap_share": 0.92,
+          "target_share": 0.32,
+          "adot": 11.0,
+          "ypr": 13.5,
+          "routes_per_game": 33,
+          "tprr": 0.28,
+          "rz_factor": 1.15,
+          "detail": "Eight catches for 92 yards and two touchdowns in the opener, both from Wentz. He was the only Vikings wide receiver to catch a pass all afternoon, which is the whole problem and the whole plan at once.",
+          "src": "measured Week 1 line; share projected"
+        },
+        {
+          "name": "Aaron Jones Sr.",
+          "pos": "RB",
+          "snap_share": 0.62,
+          "rush_share": 0.74,
+          "ypc": 4.3,
+          "target_share": 0.12,
+          "ypr": 8.0,
+          "gl_factor": 1.2,
+          "detail": "12 carries for 40 yards and a touchdown in a near-even split with Jordan Mason. With Mason on injured reserve he is the lead back by default, and the only back on the roster who has been here longer than a week.",
+          "src": "measured Week 1 line; shares projected"
+        },
+        {
+          "name": "T.J. Hockenson",
+          "pos": "TE",
+          "snap_share": 0.78,
+          "target_share": 0.19,
+          "adot": 7.5,
+          "ypr": 11.0,
+          "routes_per_game": 29,
+          "tprr": 0.2,
+          "rz_factor": 1.15,
+          "detail": "Combined with Josh Oliver for six catches, 58 yards and a touchdown in Week 1. In a rain game with a backup quarterback, the tight ends are the safest throws on the call sheet.",
+          "src": "measured combined Week 1 line; share projected"
+        },
+        {
+          "name": "Jordan Addison",
+          "pos": "WR",
+          "snap_share": 0.74,
+          "target_share": 0.17,
+          "adot": 12.0,
+          "ypr": 13.0,
+          "routes_per_game": 28,
+          "tprr": 0.17,
+          "rz_factor": 0.95,
+          "detail": "Did not record a catch in Week 1. Neither did any Vikings receiver other than Jefferson. Positive regression is the single most likely thing on this page.",
+          "src": "measured Week 1 line; share projected"
+        },
+        {
+          "name": "Josh Oliver",
+          "pos": "TE",
+          "snap_share": 0.52,
+          "target_share": 0.07,
+          "adot": 5.5,
+          "ypr": 8.5,
+          "routes_per_game": 18,
+          "tprr": 0.12,
+          "rz_factor": 1.1,
+          "detail": "The blocking tight end, which matters more than usual in a two-tight-end rain game.",
+          "src": "estimate"
+        },
+        {
+          "name": "Reserve back (unnamed)",
+          "pos": "RB",
+          "snap_share": 0.3,
+          "rush_share": 0.26,
+          "ypc": 4.0,
+          "target_share": 0.04,
+          "ypr": 7.0,
+          "gl_factor": 0.6,
+          "detail": "Minnesota has not named a second back since placing Jordan Mason on injured reserve. These carries will go somewhere; this line holds the share so Aaron Jones is not credited with a workload no 31-year-old back is going to take in the rain.",
+          "src": "placeholder for an unnamed roster move"
+        }
+      ],
+      "injuries": [
+        {
+          "player": "Kyler Murray",
+          "pos": "QB",
+          "status": "out",
+          "injury": "concussion",
+          "units": [
+            "offense"
+          ],
+          "axes": {
+            "explosive": 0.55,
+            "pass": 0.35
+          },
+          "impact": 0.45,
+          "note": "Concussed on a first-quarter scramble in his Minnesota debut. Most of his absence is already priced in by projecting Carson Wentz's own rate profile rather than his; what this adjustment carries is the scramble threat and the off-schedule explosiveness Wentz does not replace."
+        },
+        {
+          "player": "Jauan Jennings",
+          "pos": "WR",
+          "status": "out",
+          "injury": "personal",
+          "units": [
+            "offense"
+          ],
+          "axes": {
+            "pass": 0.3
+          },
+          "impact": 0.4,
+          "note": "Did not practice all week for a personal matter. He had no catches in Week 1, so the box-score cost is small, but it thins a receiver group that has produced nothing outside Justin Jefferson."
+        },
+        {
+          "player": "Brian O'Neill",
+          "pos": "RT",
+          "status": "questionable",
+          "injury": "knee",
+          "units": [
+            "offense"
+          ],
+          "axes": {
+            "pass_protect": 1.0,
+            "rush": 0.3
+          },
+          "impact": 0.7,
+          "note": "Missed Thursday, returned Friday. The starting right tackle against a defense that just led the league in hurries, protecting a quarterback who is not going to escape anything."
+        },
+        {
+          "player": "Jordan Mason",
+          "pos": "RB",
+          "status": "out",
+          "injury": "thumb (IR)",
+          "units": [
+            "offense"
+          ],
+          "axes": {
+            "rush": 0.6
+          },
+          "impact": 0.55,
+          "note": "Fractured his thumb in Week 1 and is on injured reserve for at least four games. He had a team-high 15 carries in the opener and was the early-down half of a near even split."
+        }
+      ]
+    }
+  },
+  "narrative_flags": [
+    {
+      "kind": "weather",
+      "team": "both",
+      "headline": "This is a rain game, and it is the most important fact on the page",
+      "body": "Two to three inches of rain are forecast for the Chicago area, with a north wind of 11-13 mph gusting to 27 and a noon kickoff sitting in the wettest part of the day. Rain does not make good teams bad; it narrows the range of things anyone attempts. It shortens throws, it raises the value of a back who falls forward, and it turns every exchange into a coin that can be dropped. Both of these teams would rather run than throw even in perfect weather."
+    },
+    {
+      "kind": "scheme",
+      "team": "MIN",
+      "headline": "The league's heaviest blitz against a quarterback who just ran for 65 yards",
+      "body": "Minnesota blitzes on 48.7% of snaps, more than any defense in football, and pressures on 51.4% of early downs - 13.5 points clear of second place. They then drop into zone 76.4% of the time, the league's highest rate, rather than trusting man coverage behind the pressure. Caleb Williams answered Week 1 pressure with his legs, scoring twice on the ground. Extra rushers against a mobile quarterback in the rain is a specific, high-variance bet."
+    },
+    {
+      "kind": "contradiction",
+      "team": "MIN",
+      "headline": "The second-best pass defense in football gave up 387 yards",
+      "body": "Minnesota allowed 158.5 passing yards per game in 2025, second only to Philadelphia, and 15 passing touchdowns all season. Then Jordan Love threw for 387 with Christian Watson going for 147 and two scores - and the Vikings still won by 17, having shut Green Bay out for the last quarter and a half. Seventeen games say one thing and one game says another, loudly."
+    },
+    {
+      "kind": "trend",
+      "team": "CHI",
+      "headline": "Chicago's identity is the run, and the weather agrees with it",
+      "body": "The Bears had the third-best rushing attack in football last season and opened this one with 291 rushing yards, both backs over 100. Swift and Monangai were the only tandem in the league to each clear 750 yards in 2025. Against a Vikings run defense that is the softer half of a very good unit, on a wet field, that is the path of least resistance and Ben Johnson has never needed convincing to take it."
+    }
+  ]
+}

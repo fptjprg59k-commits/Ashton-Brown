@@ -87,6 +87,9 @@ def ordinal(n: float) -> str:
 class QBLine:
     name: str
     dropbacks: float
+    #: Quarterback carries that came out of a called pass, as opposed to
+    #: designed runs. ``dropbacks == attempts + sacks + scrambles``.
+    scrambles: float
     attempts: float
     completions: float
     pass_yards: float
@@ -253,7 +256,15 @@ def _project_team(m: Matchup, team: Team, opp: Team) -> TeamProjection:
     carries_total = plays - dropbacks
 
     qb_raw = team.qb_profile or {}
-    qb_scrambles = float(qb_raw.get("rush_attempts") or 3.5)
+    qb_carries = float(qb_raw.get("rush_attempts") or 3.5)
+    # A designed quarterback run is a called run, not a dropback that broke
+    # down. Only scrambles come out of the passing game; designed keepers come
+    # out of the carry pool, the same place a handoff would. Charging both to
+    # dropbacks costs a mobile quarterback several attempts he would actually
+    # throw, which is exactly wrong for the offenses that run him on purpose.
+    designed_share = _clamp(float(qb_raw.get("designed_run_share", 0.35)), 0.0, 1.0)
+    qb_designed = qb_carries * designed_share
+    qb_scrambles = qb_carries - qb_designed
 
     # --- sacks ------------------------------------------------------------
     protect = team.offense["pass_protect"].strength
@@ -263,6 +274,7 @@ def _project_team(m: Matchup, team: Team, opp: Team) -> TeamProjection:
     sacks = dropbacks * sack_rate
 
     attempts = max(10.0, dropbacks - sacks - qb_scrambles)
+    carries_total = max(0.0, carries_total - qb_designed)
 
     # --- passing efficiency ----------------------------------------------
     off_pass = team.offense["pass"].strength
@@ -304,8 +316,8 @@ def _project_team(m: Matchup, team: Team, opp: Team) -> TeamProjection:
     rush_weights = _normalised([float(p.get("rush_share") or 0.0) for p in players])
     tgt_weights = _normalised([float(p.get("target_share") or 0.0) for p in players])
 
-    # Backs take the carries the quarterback does not.
-    rb_carries = max(0.0, carries_total - qb_scrambles)
+    # Backs take what is left of the carry pool once designed keepers are out.
+    rb_carries = max(0.0, carries_total)
     team_attempts = attempts
 
     rz_weights = _normalised([
@@ -349,12 +361,13 @@ def _project_team(m: Matchup, team: Team, opp: Team) -> TeamProjection:
         ))
 
     # Rushing yards reconcile: backs plus the quarterback.
-    qb_rush_yards = qb_scrambles * float(qb_raw.get("rush_ypc") or 4.6)
+    qb_rush_yards = qb_carries * float(qb_raw.get("rush_ypc") or 4.6)
     rush_yards_total = sum(s.rush_yards for s in skill) + qb_rush_yards
 
     qb = QBLine(
         name=team.qb or (qb_raw.get("name") or "Quarterback"),
         dropbacks=dropbacks,
+        scrambles=qb_scrambles,
         attempts=attempts,
         completions=completions,
         pass_yards=pass_yards,
@@ -362,7 +375,7 @@ def _project_team(m: Matchup, team: Team, opp: Team) -> TeamProjection:
         interceptions=interceptions,
         sacks=sacks,
         sack_yards=sacks * 6.8,
-        rush_attempts=qb_scrambles,
+        rush_attempts=qb_carries,
         rush_yards=qb_rush_yards,
         rush_tds=qb_rush_tds,
         td_probability=_poisson_at_least_one(qb_rush_tds),
@@ -380,7 +393,7 @@ def _project_team(m: Matchup, team: Team, opp: Team) -> TeamProjection:
         completions=completions,
         pass_yards=pass_yards,
         sacks=sacks,
-        carries=rb_carries + qb_scrambles,
+        carries=rb_carries + qb_carries,
         rush_yards=rush_yards_total,
         interceptions=interceptions,
         expected_tds=expected_tds,

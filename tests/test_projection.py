@@ -95,8 +95,30 @@ def test_dropbacks_split_into_attempts_sacks_and_scrambles():
     g = project(_game())
     for tp in g.teams:
         assert tp.dropbacks == pytest.approx(
-            tp.attempts + tp.sacks + tp.qb.rush_attempts, abs=0.01
+            tp.attempts + tp.sacks + tp.qb.scrambles, abs=0.01
         )
+
+
+def test_designed_quarterback_runs_cost_carries_not_pass_attempts():
+    """A called keeper is a run. Charging it to dropbacks would quietly take
+    throws away from exactly the quarterbacks a team runs on purpose."""
+    pocket = project(_game(**{"teams.AAA.qb_profile": {
+        "name": "Pocket", "ypa": 7.2, "completion_pct": 0.65, "int_rate": 0.023,
+        "sack_rate": 0.068, "rush_attempts": 6.0, "rush_ypc": 4.5,
+        "designed_run_share": 0.0,
+    }}))
+    runner = project(_game(**{"teams.AAA.qb_profile": {
+        "name": "Runner", "ypa": 7.2, "completion_pct": 0.65, "int_rate": 0.023,
+        "sack_rate": 0.068, "rush_attempts": 6.0, "rush_ypc": 4.5,
+        "designed_run_share": 1.0,
+    }}))
+    a, b = pocket.for_team("AAA"), runner.for_team("AAA")
+    # Same carries for the quarterback either way...
+    assert a.qb.rush_attempts == pytest.approx(b.qb.rush_attempts)
+    # ...but the designed runner keeps his pass attempts.
+    assert b.attempts > a.attempts + 4
+    # and takes those carries off his running backs instead.
+    assert sum(s.carries for s in b.skill) < sum(s.carries for s in a.skill)
 
 
 def test_touchdown_budget_is_fully_allocated_and_not_exceeded():

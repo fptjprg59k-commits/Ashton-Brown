@@ -430,7 +430,8 @@
         "rush_attempts": 4.4,
         "rush_ypc": 5.2,
         "rush_td_share": 0.22,
-        "src": "2025: 502 attempts, 3,587 yards, 7.15 yards per attempt (26th), 63% completions, 22 TD, 11 INT, 5.8% sack rate, plus 62 carries for 407 yards and 4 scores. Yards per attempt and completion rate are nudged back toward his career marks because 2025 ended in a torn ACL behind a porous line."
+        "src": "2025: 502 attempts, 3,587 yards, 7.15 yards per attempt (26th), 63% completions, 22 TD, 11 INT, 5.8% sack rate, plus 62 carries for 407 yards and 4 scores. Yards per attempt and completion rate are nudged back toward his career marks because 2025 ended in a torn ACL behind a porous line.",
+        "designed_run_share": 0.25
       }
     },
     "IND": {
@@ -759,7 +760,8 @@
         "rush_attempts": 5.0,
         "rush_ypc": 4.0,
         "rush_td_share": 0.18,
-        "src": "2025: 3,101 yards over 13 starts at 8.1 yards per attempt (3rd) and 68% completions (4th) for a 100.2 rating. Regressed toward league average here because Week 1 produced 166 yards on 31 attempts under nine QB hits."
+        "src": "2025: 3,101 yards over 13 starts at 8.1 yards per attempt (3rd) and 68% completions (4th) for a 100.2 rating. Regressed toward league average here because Week 1 produced 166 yards on 31 attempts under nine QB hits.",
+        "designed_run_share": 0.3
       }
     }
   },

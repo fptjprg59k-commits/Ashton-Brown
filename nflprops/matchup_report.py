@@ -21,6 +21,19 @@ def _e(x: Any) -> str:
     return html.escape(str(x if x is not None else ""))
 
 
+def _tc(t: Team, prefix: str = "tc") -> str:
+    """Team colour as a theme-aware pair of custom properties.
+
+    A team's primary colour is picked to sit on a white page. Chicago navy and
+    Colts blue are nearly invisible on a dark ground, so every surface carries
+    both variants and the stylesheet resolves one. The resolved ``--tc`` is
+    never set inline, because an inline custom property would outrank the media
+    query that is supposed to swap it.
+    """
+    return (f'--{prefix}-l:{_e(t.color)}; '
+            f'--{prefix}-d:{_e(t.color_dark or t.color)}')
+
+
 def _pos(rank: float) -> float:
     """Rank 1..32 -> 0..100% along the leverage rail."""
     return max(0.0, min(100.0, (float(rank) - 1.0) / 31.0 * 100.0))
@@ -35,6 +48,14 @@ CSS = f"""
 {BASE_CSS}
 
 body{{padding-block:0 64px}}
+
+/* Team colour resolves here, never inline - see _tc(). */
+.tc{{--tc:var(--tc-l); --oc:var(--oc-l, var(--tc-l))}}
+@media (prefers-color-scheme:dark){{
+  :root:not([data-theme="light"]) .tc{{--tc:var(--tc-d); --oc:var(--oc-d, var(--tc-d))}}
+}}
+:root[data-theme="dark"] .tc{{--tc:var(--tc-d); --oc:var(--oc-d, var(--tc-d))}}
+
 .wrap{{max-width:1000px}}
 
 h1,h2{{font-family:{FONT_DISPLAY}; font-weight:700; margin:0; text-wrap:balance}}
@@ -150,7 +171,7 @@ tbody tr:hover{{background:var(--raised)}}
 .rail{{position:relative; height:30px; min-width:0}}
 .rail .track{{position:absolute; left:0; right:0; top:13px; height:4px;
   background:var(--track); border-radius:2px}}
-.rail .span{{position:absolute; top:11px; height:8px; border-radius:2px; background:var(--tc)}}
+.rail .span{{position:absolute; top:11px; height:8px; border-radius:2px; background:var(--oc)}}
 .rail .mk{{position:absolute; top:5px; width:2px; height:20px; background:var(--ink)}}
 .rail .mk.off{{background:var(--tc); width:3px}}
 .rail .lab{{position:absolute; font-family:{FONT_MONO}; font-size:10px;
@@ -225,7 +246,7 @@ def _scoreboard(g: GameProjection) -> str:
     rows = []
     for tp in g.teams:
         t = m.team(tp.team)
-        rows.append(f"""<div class="row" style="--tc:{_e(t.color)}">
+        rows.append(f"""<div class="row tc" style="{_tc(t)}">
   <div><div class="nm">{_e(t.name)}</div>
     <div class="meta">{_e(t.record)} &middot; {tp.total_yards:.0f} yds &middot;
       {tp.pass_yards:.0f} pass / {tp.rush_yards:.0f} rush &middot;
@@ -247,7 +268,7 @@ def _team_totals(g: GameProjection) -> str:
     for tp in g.teams:
         t = m.team(tp.team)
         rows.append(f"""<tr>
-  <td class="pl" style="border-left:4px solid {_e(t.color)}; padding-left:9px">{_e(t.name)}</td>
+  <td class="pl tc" style="{_tc(t)}; border-left:4px solid var(--tc); padding-left:9px">{_e(t.name)}</td>
   <td class="n">{tp.plays:.0f}</td>
   <td class="n">{tp.pass_rate:.0%}</td>
   <td class="n">{tp.attempts:.0f}</td>
@@ -266,7 +287,7 @@ def _team_totals(g: GameProjection) -> str:
     for tp in g.teams:
         t = m.team(tp.team)
         py = tp.pass_yards / max(1.0, tp.total_yards) * 100
-        splits.append(f"""<div class="sp" style="--tc:{_e(t.color)}">
+        splits.append(f"""<div class="sp tc" style="{_tc(t)}">
   <div class="hd"><span>{_e(t.abbr)} yardage split</span><b>{tp.total_yards:.0f} total</b></div>
   <div class="bar2"><span class="a" style="width:{py:.1f}%">{tp.pass_yards:.0f} pass</span>
     <span class="b" style="width:{100 - py:.1f}%">{tp.rush_yards:.0f} rush</span></div>
@@ -288,7 +309,7 @@ def _qb_cards(g: GameProjection) -> str:
         t = m.team(tp.team)
         q = tp.qb
         src = (t.qb_profile or {}).get("src", "")
-        cards.append(f"""<div class="qbc" style="--tc:{_e(t.color)}">
+        cards.append(f"""<div class="qbc tc" style="{_tc(t)}">
   <div class="nm">{_e(q.name)}</div>
   <div class="ln">{q.completions:.0f}/{q.attempts:.0f} &middot; {q.pass_yards:.0f} yds &middot;
     {q.pass_tds:.1f} TD &middot; {q.interceptions:.1f} INT</div>
@@ -344,10 +365,10 @@ def _rail(m: Matchup, l) -> str:
         return f"left:{x2:.1f}%; transform:translateX(-50%)"
 
     close = abs(o - d) < 9
-    return f"""<div class="rail">
+    return f"""<div class="rail tc" style="{_tc(att)}; {_tc(owner, 'oc')}">
   <div class="track"></div>
-  <div class="span" style="left:{lo:.1f}%; width:{max(0.6, hi - lo):.1f}%; background:{_e(owner.color)}"></div>
-  <div class="mk off" style="left:{o:.1f}%; background:{_e(att.color)}"></div>
+  <div class="span" style="left:{lo:.1f}%; width:{max(0.6, hi - lo):.1f}%; background:var(--oc)"></div>
+  <div class="mk off" style="left:{o:.1f}%; background:var(--tc)"></div>
   <div class="mk" style="left:{d:.1f}%"></div>
   <div class="lab hi" style="{anchor(o, -4.0 if close else 0.0)}">{_e(l.attacker)} {ordinal(l.off_metric.adjusted)}</div>
   <div class="lab lo" style="{anchor(d, 4.0 if close else 0.0)}">{_e(l.defender)} {ordinal(l.def_metric.adjusted)}</div>
@@ -362,7 +383,7 @@ def _leverage(g: GameProjection, n: int = 5) -> str:
     for l in picked:
         owner = m.team(l.attacker) if l.edge >= 0 else m.team(l.defender)
         cap = (f"{l.attacker} offense" if l.edge >= 0 else f"{l.defender} defense")
-        rows.append(f"""<div class="lrow" style="--tc:{_e(owner.color)}">
+        rows.append(f"""<div class="lrow tc" style="{_tc(owner)}">
   <div><div class="ax">{_e(l.axis.label)}</div><div class="at">{_e(cap)}</div></div>
   {_rail(m, l)}
   <div class="sc">{l.score:+.1f}</div>
@@ -445,8 +466,8 @@ def render_matchup_html(m: Matchup, title: Optional[str] = None) -> str:
   <div class="sec-head"><h2>Players</h2>
     <span class="q">Any TD is the chance of scoring at least once, rushing or receiving.</span></div>
   <div class="stackcols">
-    <div style="--tc:{_e(m.away.color)}">{_player_table(g, g.away)}</div>
-    <div style="--tc:{_e(m.home.color)}">{_player_table(g, g.home)}</div>
+    <div class="tc" style="{_tc(m.away)}">{_player_table(g, g.away)}</div>
+    <div class="tc" style="{_tc(m.home)}">{_player_table(g, g.home)}</div>
   </div>
 </section>
 
