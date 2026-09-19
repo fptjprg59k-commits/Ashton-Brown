@@ -681,10 +681,16 @@ class Matchup:
     def open_questions(self, n: int = 5, floor: float = 0.30) -> List[Tuple[Team, str, Metric]]:
         """The metrics where last season and this season flatly disagree.
 
-        Sorted by how loud the contradiction is. These are the report's own
-        caveats, stated up front instead of buried: the blend has produced a
-        number for each of them, and that number is the least trustworthy
-        thing on the page.
+        These are the report's own caveats, stated up front instead of buried:
+        the blend has produced a number for each of them, and that number is
+        the least trustworthy thing on the page.
+
+        Ordered by disagreement *weighted by confidence*, which matters more
+        than it sounds. Two published figures that contradict each other are a
+        real question about a real team. Two of the author's own estimates that
+        contradict each other are mostly a question about the estimates, and
+        promoting that to the top of the page would be dressing up the model's
+        own noise as a finding.
         """
         out: List[Tuple[Team, str, Metric]] = []
         for t in self.teams:
@@ -692,7 +698,7 @@ class Matchup:
                 for m in unit.values():
                     if m.disagreement >= floor:
                         out.append((t, unit_name, m))
-        return sorted(out, key=lambda r: -r[2].disagreement)[:n]
+        return sorted(out, key=lambda r: -(r[2].disagreement * r[2].confidence))[:n]
 
 
 def _situation_flags(

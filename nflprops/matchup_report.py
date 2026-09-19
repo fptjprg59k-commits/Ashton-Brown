@@ -646,6 +646,15 @@ def render_matchup_html(m: Matchup, title: Optional[str] = None) -> str:
         for n in m.narrative
     )
 
+    src_list = meta.get("sources") or []
+    sources = ""
+    if src_list:
+        links = " &middot; ".join(
+            f'<a href="{_e(x.get("url"))}" rel="noreferrer">{_e(x.get("name"))}</a>'
+            for x in src_list
+        )
+        sources = f"<b>Sources.</b> {links}<br><br>"
+
     flags = "".join(
         f"""<div class="flag"><span class="l">{_e(f.label)}</span>
   <span class="w w-{_e(f.weight)}">{_e(f.weight)}</span>
@@ -742,6 +751,7 @@ are the author's inference and should be treated as such.
 play, home field, coaching in the fourth quarter, or anything that happens on special
 teams. Do not read the net figure as a point spread.
 <br><br>
+{sources}
 Built with <b>nflprops matchup</b> &middot; analysis only, not advice &middot;
 if gambling stops being fun, call or text 1-800-GAMBLER
 </footer>

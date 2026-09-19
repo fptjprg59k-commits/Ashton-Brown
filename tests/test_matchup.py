@@ -285,12 +285,30 @@ def test_the_bundled_matchup_loads_and_both_surfaces_render():
 
 
 def test_the_bundled_matchup_flags_the_colts_run_defense_contradiction():
-    """2025 said 4th, Week 1 said 32nd. That has to survive to the report."""
+    """Top-seven run defence last season, dead last after Week 1. That
+    contradiction is the whole reason this report exists, so it has to reach
+    the page rather than being averaged into a number nobody believes."""
     m = load_matchup(FIXTURE)
-    top = m.open_questions(1)[0]
-    team, unit, metric = top
-    assert team.abbr == "IND" and unit == "defense"
-    assert metric.prior == 4 and metric.current == 32
+    run_d = m.team("IND").defense["rush"]
+    assert run_d.prior is not None and run_d.prior <= 10
+    assert run_d.current is not None and run_d.current >= 28
+    assert run_d.disagreement > 0.5
+    flagged = m.open_questions(6)
+    assert any(mm is run_d for _, _, mm in flagged)
+
+
+def test_open_questions_prefer_measured_contradictions_over_estimated_ones():
+    """A clash between two published figures beats a clash between two guesses."""
+    raw = _synthetic(opp_rush_rank=16, opp_pass_rank=16)
+    raw["teams"]["AAA"]["defense"]["rush"] = {
+        "prior": 1, "current": 32, "prior_src": "measured", "current_src": "measured",
+    }
+    raw["teams"]["AAA"]["defense"]["pass"] = {
+        "prior": 1, "current": 32, "prior_src": "estimate", "current_src": "estimate",
+    }
+    m = build_matchup(raw)
+    ordered = [mm.key for _, _, mm in m.open_questions(4)]
+    assert ordered.index("rush") < ordered.index("pass")
 
 
 def test_every_leverage_row_points_at_a_real_pair_of_metrics():

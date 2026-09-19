@@ -24,7 +24,29 @@
       }
     },
     "series": "Colts lead the all-time series 18-11 across 29 meetings (5 postseason). Mahomes is 1-2 as a starter against Indianapolis.",
-    "games_played": 1
+    "games_played": 1,
+    "sources": [
+      {
+        "name": "Sharp Football Analysis - Week 2 matchups, team tendencies and unit outlooks",
+        "url": "https://www.sharpfootballanalysis.com/stats-nfl/nfl-matchups/"
+      },
+      {
+        "name": "Sharp Football Analysis - Colts vs. Chiefs Week 2 worksheet (Rich Hribar)",
+        "url": "https://www.sharpfootballanalysis.com/fantasy/colts-chiefs-week-2-fantasy-football-preview-nfl-worksheet-rich-hribar-2026/"
+      },
+      {
+        "name": "TeamRankings - NFL team stats",
+        "url": "https://www.teamrankings.com/nfl/team-stats/"
+      },
+      {
+        "name": "Arrowhead Pride - Chiefs-Colts Week 2 final injury report",
+        "url": "https://www.arrowheadpride.com/kansas-city-chiefs-injuries/210679/chiefs-colts-week-2-final-injury-report-chris-jones-mansoor-delane"
+      },
+      {
+        "name": "ESPN - Chiefs 31, Broncos 10 (Week 1)",
+        "url": "https://www.espn.com/nfl/story/_/id/49944600/2026-nfl-week-1-kansas-city-chiefs-denver-broncos-kenneth-walker-patrick-mahomes"
+      }
+    ]
   },
   "weather": {
     "forecast": "Thunderstorms in the area through the evening",
@@ -76,10 +98,10 @@
         "rush": {
           "label": "Run offense",
           "prior": 21,
-          "current": 3,
+          "current": 2,
           "prior_src": "estimate",
           "current_src": "measured",
-          "detail": "Kenneth Walker III went 23-173-2 with 14 broken tackles, the most by any back in a game since 2022. Most rushing yards by a Chief since Jamaal Charles in 2012.",
+          "detail": "Kansas City ran for 220 yards as a team in Week 1, their most since Week 6 of 2020 and the third-most in the Andy Reid era. Kenneth Walker III went 23-173-2 with 14 broken tackles, the most by any back in a game since 2022, and the most rushing yards in a team debut since Michael Turner in 2008.",
           "carryover": 0.25,
           "carryover_note": "Kenneth Walker III replaces the entire 2025 backfield behind a line that was already good at run blocking. Last year's team rushing rank describes a different personnel group, so it is given only a quarter of its usual weight."
         },
@@ -136,19 +158,21 @@
         },
         "pass": {
           "label": "Pass defense",
-          "prior": 7,
+          "prior": 13,
           "current": 3,
-          "prior_src": "estimate",
+          "prior_src": "measured",
           "current_src": "measured",
-          "detail": "Held Bo Nix to 131 yards on 28 attempts."
+          "detail": "Allowed 6.9 yards per pass attempt in 2025 (14th) and finished 12th in EPA allowed per pass attempt. Held Bo Nix to 131 yards on 28 attempts in Week 1.",
+          "carryover": 0.45,
+          "carryover_note": "The corner room turned over almost completely. Trent McDuffie and Jaylen Watson both left for the Rams and Bryan Cook departed in free agency. Mansoor Delane was drafted 6th overall, Nohl Williams steps up from 457 rookie snaps, and Alohi Gilman was signed at safety. Last season's coverage rank describes a different secondary."
         },
         "rush": {
           "label": "Run defense",
-          "prior": 27,
-          "current": 14,
+          "prior": 20,
+          "current": 2,
           "prior_src": "measured",
-          "current_src": "estimate",
-          "detail": "27th in rush defense DVOA in 2025. This is the soft spot and it has been for two years."
+          "current_src": "measured",
+          "detail": "The two public measures disagree. Kansas City graded 27th in rush defense DVOA in 2025, but allowed only 4.0 yards per carry to running backs and ranked 7th in explosive run plays allowed to backs. Then they posted the league's highest success rate defending the run in Week 1 at 80%. The DVOA figure looks like volume and game situation, not a front that gets moved."
         },
         "red_zone": {
           "label": "Red zone defense",
@@ -172,7 +196,7 @@
           "current": 1,
           "prior_src": "measured",
           "current_src": "measured",
-          "detail": "10th in pressure rate in 2025 but only 35 sacks. Generated a 45.5% pressure rate against Denver on a 30.3% blitz rate."
+          "detail": "10th in pressure rate in 2025 on only 35 sacks, but on plays with a dropback probability of 80% or higher they led the entire league at a 47.2% pressure rate. This front feasts when it knows a pass is coming. Generated 45.5% pressure on a 30.3% blitz rate against Denver."
         },
         "takeaways": {
           "label": "Takeaways",
@@ -247,6 +271,13 @@
           "prior": 0.36,
           "current": 0.455,
           "src": "measured"
+        },
+        "proe": {
+          "label": "Pass rate over expected",
+          "prior": 0.068,
+          "current": -0.009,
+          "src": "measured",
+          "detail": "2nd in the NFL at +6.8% in 2025, 20th at -0.9% now. This is the cleanest single number in the file: it strips out score and down-and-distance and still says Kansas City has decided to be a more run-leaning team than the situation calls for."
         }
       },
       "players": [
@@ -399,10 +430,10 @@
         "rush": {
           "label": "Run offense",
           "prior": 4,
-          "current": 11,
+          "current": 8,
           "prior_src": "estimate",
           "current_src": "measured",
-          "detail": "Jonathan Taylor ran for 1,585 yards and 18 touchdowns in 2025. He went 19-98-2 in the opener and was efficient even as the game got away."
+          "detail": "Jonathan Taylor ran for 1,585 yards and 18 touchdowns in 2025. In Week 1 the Colts posted a 50% success rate running the ball, 3rd in the league, against a 36.4% success rate throwing it, 23rd. The run game was the only part that worked."
         },
         "red_zone": {
           "label": "Red zone",
@@ -456,17 +487,19 @@
         "pass": {
           "label": "Pass defense",
           "prior": 20,
-          "current": 27,
-          "prior_src": "estimate",
-          "current_src": "estimate"
+          "current": 30,
+          "prior_src": "measured",
+          "current_src": "measured",
+          "detail": "Allowed 7.1 yards per pass attempt in 2025 (19th) and finished 21st in EPA per pass allowed. In Week 1 they had a 44.4% success rate defending the pass, 30th, and gave up 11.3 yards per attempt to Baltimore.",
+          "carryover_note": "Sauce Gardner, acquired midseason, played four games; Charvarius Ward was limited to seven by three concussions. Last year's rank was recorded almost entirely without the corner duo they are counting on."
         },
         "rush": {
           "label": "Run defense",
-          "prior": 4,
+          "prior": 7,
           "current": 32,
           "prior_src": "measured",
           "current_src": "measured",
-          "detail": "The contradiction of this game. 2nd in yards per carry allowed (3.87) and 7th in rushing yards allowed (101.9) in 2025 - then 202 yards and three scores to Derrick Henry at 6.0 a pop."
+          "detail": "Allowed 4.0 yards per carry to running backs in 2025, 7th. But the interior line gave up 1.4 yards before contact per attempt, 23rd - they were tackling well, not penetrating. Then 202 rushing yards and three scores to Derrick Henry at 6.0 a pop."
         },
         "red_zone": {
           "label": "Red zone defense",
@@ -484,11 +517,11 @@
         },
         "pressure": {
           "label": "Pass rush",
-          "prior": 12,
+          "prior": 23,
           "current": 24,
-          "prior_src": "estimate",
+          "prior_src": "measured",
           "current_src": "estimate",
-          "detail": "Anarumo manufactures pressure with design rather than with a dominant front."
+          "detail": "23rd in pressure rate in 2025 at 34.2%, with 39 sacks (15th). Laiatu Latu led the team with 8.5 sacks on a 14.7% pressure rate. Anarumo manufactures pressure with design because the front does not win on its own."
         },
         "takeaways": {
           "label": "Takeaways",
@@ -504,7 +537,7 @@
           "current": 31,
           "prior_src": "estimate",
           "current_src": "estimate",
-          "detail": "Henry was not being tackled on first contact. Communication breakdowns, by the team's own account, not just missed tackles."
+          "detail": "Indianapolis allowed 10 or more yards on a league-high 29.7% of plays in Week 1 and 7.9 yards per play overall. The team blamed pre-snap communication and moved the green dot to Akeem Davis-Gaither this week."
         }
       },
       "carryover": {
@@ -522,10 +555,10 @@
         },
         "play_action": {
           "label": "Play action rate",
-          "prior": 0.31,
-          "current": 0.24,
-          "src": "estimate",
-          "detail": "Play action is central to the design and it is the first thing a deficit takes away."
+          "prior": 0.6,
+          "current": 0.64,
+          "src": "measured",
+          "detail": "64% of Colts throws come off play action, the highest rate in the NFL. It is the engine of the offense, it is built from under center, and it is the first thing a two-score deficit takes away."
         },
         "deep_rate": {
           "label": "Deep throw rate (20+)",
@@ -556,9 +589,9 @@
         "def_man_rate": {
           "label": "Man coverage rate",
           "prior": 0.27,
-          "current": 0.27,
+          "current": 0.469,
           "src": "measured",
-          "detail": "Up from roughly 13-16% under the previous staff. Anarumo attaches man to his five-man pressures with a single high safety."
+          "detail": "Indianapolis played man coverage on a league-high 46.9% of snaps in Week 1. Anarumo has leaned hard into man in every full game since the Colts acquired Sauce Gardner, up from the 13-16% the previous staff played."
         },
         "def_pressure_rate": {
           "label": "Pressure rate",
@@ -576,9 +609,9 @@
         {
           "name": "Jonathan Taylor",
           "pos": "RB",
-          "snap_share": 0.89,
-          "touches": 20,
-          "detail": "89% snap share in Week 1 - no committee to speak of with Giddens inactive. 323-1585-18 rushing plus 46 catches in 2025.",
+          "snap_share": 0.887,
+          "touches": 22,
+          "detail": "Turned 22 touches into 121 yards and two touchdowns in Week 1. Led all running backs in snap share (88.7%) and backfield touch share (95.7%) - there is no committee here. 323-1585-18 rushing plus 46 catches in 2025.",
           "src": "measured"
         },
         {
@@ -670,6 +703,18 @@
       "team": "IND",
       "headline": "Anarumo will bring pressure. That is the question of the night.",
       "body": "The Colts sell blitz on a high share of snaps and attach man coverage behind five-man pressure with one deep safety. Against most quarterbacks that is how you steal possessions. Against Mahomes, off-schedule, it is historically how you give up the play that decides the game - and Kansas City's answer receiver is Rashee Rice at a 4.9 aDOT, which is the exact throw a blitz surrenders."
+    },
+    {
+      "kind": "scheme",
+      "team": "IND",
+      "headline": "League-high man coverage, against the quarterback who punishes it",
+      "body": "Indianapolis played man on 46.9% of snaps in Week 1, the highest rate in football, and Anarumo has stayed in it every full game since trading for Sauce Gardner. Man coverage behind a front that finished 23rd in pressure rate is a specific bet: that the corners win before the quarterback can find the second read. Against Mahomes off schedule, with Rashee Rice working at a 4.9 aDOT underneath, that is the bet with the widest range of outcomes on the field."
+    },
+    {
+      "kind": "history",
+      "team": "KC",
+      "headline": "Last year's meeting needed 54 dropbacks. This one should not.",
+      "body": "Mahomes finished as the QB11 on 54 dropbacks the last time these teams met. The Chiefs have since gone from 2nd in pass rate over expected to 20th and added a back who broke 14 tackles in his debut. The volume that produced that line is unlikely to be there again."
     }
   ]
 }
