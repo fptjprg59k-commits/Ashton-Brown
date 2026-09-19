@@ -447,14 +447,64 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 def cmd_matchup(args: argparse.Namespace) -> int:
     from .matchup import load_matchup
     from .matchup_report import render_matchup_html, render_matchup_terminal
+    from .projection import game_script, project
 
     m = load_matchup(args.game)
 
     if args.format == "json":
+        g = project(m)
         out = json.dumps(
             {
                 "meta": m.meta,
                 "weather": m.weather,
+                "game_script": game_script(g),
+                "projection": {
+                    "total": round(g.total, 2),
+                    "margin": round(g.margin, 2),
+                    "teams": {
+                        tp.team: {
+                            "points": round(tp.points, 2),
+                            "market_points": round(tp.market_points, 2),
+                            "plays": round(tp.plays, 1),
+                            "pass_rate": round(tp.pass_rate, 4),
+                            "pass_yards": round(tp.pass_yards, 1),
+                            "rush_yards": round(tp.rush_yards, 1),
+                            "total_yards": round(tp.total_yards, 1),
+                            "sacks_allowed": round(tp.sacks, 2),
+                            "interceptions": round(tp.interceptions, 2),
+                            "expected_tds": round(tp.expected_tds, 2),
+                            "qb": {
+                                "name": tp.qb.name,
+                                "attempts": round(tp.qb.attempts, 1),
+                                "completions": round(tp.qb.completions, 1),
+                                "completion_pct": round(tp.qb.completion_pct, 4),
+                                "pass_yards": round(tp.qb.pass_yards, 1),
+                                "yards_per_attempt": round(tp.qb.yards_per_attempt, 2),
+                                "pass_tds": round(tp.qb.pass_tds, 2),
+                                "interceptions": round(tp.qb.interceptions, 2),
+                                "sacks": round(tp.qb.sacks, 2),
+                                "rush_attempts": round(tp.qb.rush_attempts, 1),
+                                "rush_yards": round(tp.qb.rush_yards, 1),
+                                "rush_td_probability": round(tp.qb.td_probability, 4),
+                            },
+                            "players": [
+                                {
+                                    "name": s.name, "pos": s.pos,
+                                    "carries": round(s.carries, 1),
+                                    "rush_yards": round(s.rush_yards, 1),
+                                    "targets": round(s.targets, 1),
+                                    "receptions": round(s.receptions, 1),
+                                    "rec_yards": round(s.rec_yards, 1),
+                                    "total_yards": round(s.total_yards, 1),
+                                    "expected_tds": round(s.expected_tds, 3),
+                                    "td_probability": round(s.td_probability, 4),
+                                }
+                                for s in tp.skill
+                            ],
+                        }
+                        for tp in g.teams
+                    },
+                },
                 "scripts": {
                     a: {
                         "neutral_pass_rate": round(s.neutral_pass_rate, 4),

@@ -283,6 +283,9 @@ class Team:
     players: List[Dict[str, Any]]
     injuries: List[Injury]
     carryover: Dict[str, Any]
+    #: Passing and rushing baselines for the starter, read by the projection
+    #: model. Absent means league average is used instead.
+    qb_profile: Dict[str, Any] = field(default_factory=dict)
 
     def tendency(self, key: str, games: int) -> float:
         """Blend a tendency the same way a rank is blended, on its own scale."""
@@ -631,6 +634,7 @@ def _team_from_dict(abbr: str, d: Dict[str, Any], games: int) -> Team:
         players=list(d.get("players") or []),
         injuries=injuries,
         carryover=carry,
+        qb_profile=d.get("qb_profile", {}) or {},
     )
     _apply_injuries(team)
     return team

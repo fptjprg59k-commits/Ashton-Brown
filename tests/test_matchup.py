@@ -269,15 +269,17 @@ def test_the_bundled_matchup_loads_and_both_surfaces_render():
     assert m.home.abbr == "KC", "the Chiefs are at home"
 
     text = render_matchup_terminal(m)
-    assert "LEVERAGE BOARD" in text and "OPEN QUESTIONS" in text
+    assert "GAME SCRIPT" in text and "PROJECTION" in text and "INJURIES" in text
 
     page = render_matchup_html(m)
     assert page.count("<title>") == 1
-    assert "Matchup Lab" in page
-    # every section renders
-    for heading in ("The read", "Leverage board", "Open questions", "Unit ranks",
-                    "Play calling", "Personnel and usage", "Injuries", "Situation"):
+    assert "Projection" in page
+    for heading in ("Game script", "Team projections", "Quarterbacks", "Players",
+                    "Why these numbers", "Injuries"):
         assert heading in page
+    # the players themselves reach the page
+    for who in ("Patrick Mahomes", "Kenneth Walker III", "Jonathan Taylor", "Alec Pierce"):
+        assert who in page
     # No Python template leftovers escaped into the output. CSS has braces of
     # its own, so look for the names that would only appear unrendered.
     for leak in ("{FONT_", "{_e(", "{TOKENS_CSS", "{BASE_CSS", "None%"):

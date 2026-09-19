@@ -46,7 +46,7 @@ nflprops dashboard --source fixtures/scoreboard_preseason.json
 nflprops run --game fixtures/game_bal_cin_halftime.json \
              --props fixtures/props_paste.txt --verbose
 
-# before kickoff: how two teams match up, and who exploits whom
+# before kickoff: projected score, team and player stat lines
 nflprops matchup --game fixtures/matchup_ind_kc_2026w2.json \
                  --format html --out matchup.html
 ```
@@ -138,126 +138,111 @@ on where the league is in its rollover. Pass `--season-type preseason`
 
 ## The matchup lab
 
-`nflprops matchup` answers the question that comes *before* kickoff: given two
-teams and nothing but a schedule, **who has leverage over whom, and what will
-each team therefore try to do?**
+`nflprops matchup` projects a game before it is played: a score, team and player
+stat lines, and the matchup reasoning that produced them.
 
 ```bash
 nflprops matchup --game fixtures/matchup_ind_kc_2026w2.json            # terminal
 nflprops matchup --game fixtures/matchup_ind_kc_2026w2.json \
-                 --format html --out matchup.html                      # full report
+                 --format html --out matchup.html                      # full page
 nflprops matchup --game fixtures/matchup_ind_kc_2026w2.json --format json
 ```
 
-The bundled game is **Colts at Chiefs, Week 2 of 2026**, Sunday night at
-Arrowhead. To analyse a different game, copy that file and edit it. Nothing
-else changes.
+The bundled game is **Colts at Chiefs, Week 2 of 2026**. To project a different
+one, copy that file and edit it. Nothing else changes.
 
-### What it does
+### What comes out
 
-Three ideas, and they are all in `nflprops/matchup.py` where you can argue with
-them.
+* **Projected score** and total, against the market's own numbers.
+* **Team totals** — plays, pass rate, attempts, completions, passing yards,
+  carries, rushing yards, yards per play, sacks allowed, interceptions.
+* **A full quarterback line** — completions, attempts, completion rate, yards,
+  yards per attempt, touchdowns, interceptions, sacks taken, carries, rushing
+  yards, and odds of a rushing score.
+* **Every listed player** — carries, rushing yards, targets, receptions,
+  receiving yards, total yards, and the chance of scoring at least once.
+* **A game script** in a paragraph, including the number least worth trusting.
 
-**A rank is a blend, not a number.** In Week 2, this season's rank is one game
-of evidence and last season's is seventeen. Every metric carries both, and they
-are combined by credibility:
+### How the numbers are built
 
-```
-w_current = games / (games + k)
-```
-
-`k` is set per metric family — how many games that statistic needs before it
-means anything. Yards per carry stabilises fast (`k=3`); turnover rate barely
-stabilises at all (`k=8`). The weight this season does not claim is split
-between last season and **league average** by the unit's `carryover`: how much
-of last year's team still exists. A team that replaced its lead back should not
-be described by last year's rushing rank, and regressing the difference toward
-16.5 says *"we don't know yet"* instead of inventing confidence in either
-direction. `carryover` can be set per unit or overridden per metric.
-
-**Leverage is offensive strength minus the defence in front of it, weighted by
-how often that phase will occur.** A red zone edge is worth less than an early
-down edge because there are twelve red zone snaps and a hundred and twenty
-others. Each axis carries an `exposure`, and exposure is scaled by the
-projected script — if a team is going to throw on 63% of snaps, its receivers'
-edge counts for more *in that game*.
-
-**The script is predictable from the matchup.** `project_script` starts at a
-team's neutral pass rate and moves it for the four things that actually move
-it: expected margin (trailing teams throw), the specific weakness across the
-ball (you run at a bad run defence), weather, and rest. Every adjustment is
-returned with its size and its reason, so the report prints the arithmetic
-rather than the conclusion:
+The chain is short enough to check by hand:
 
 ```
-  KC script: 54% pass / 46% run (neutral 59%)  ~33 dropbacks, ~29 carries
+points   <- market implied total and spread, tilted by net phase leverage
+plays    <- pace
+dropbacks / carries  <- projected pass rate
+sacks    <- dropbacks x a sack rate set by pass rush against protection
+attempts <- dropbacks - sacks - scrambles
+yards    <- attempts x matchup-adjusted yards per attempt
+players  <- team totals split by usage share, priced by efficiency
+```
+
+**A rank is a blend, not a number.** In Week 2, this season is one game of
+evidence and last season is seventeen. Every metric carries both and they
+combine by credibility, `w_current = g / (g + k)`, with `k` set per metric
+family for how long that statistic takes to stabilise. The weight this season
+does not claim is split between last season and **league average** by the unit's
+`carryover` — how much of last year's team still exists. Regressing the
+remainder toward 16.5 says *"we don't know yet"* rather than inventing
+confidence. `carryover` can be set per unit or overridden per metric.
+
+**The market anchors the score, the model does not.** A units-against-units
+score is a worse predictor than the closing line, because the line already
+prices quarterback play, home field and everything the leverage board
+deliberately excludes. So the projection starts at the implied score and moves
+it by a capped tilt. A model that swings a total ten points off its own rank
+table is not being bold, it is being wrong loudly.
+
+**Touchdowns are a rate, not a coin flip.** Expected scores are allocated by
+red-zone-weighted usage and converted with a Poisson tail,
+`P(>=1) = 1 - exp(-expected)`. A back projected for 0.8 expected scores reads
+as 55%, not 80%, because scoring twice is a real outcome and has to come out of
+the same budget. A test asserts the budget is exactly allocated and never
+exceeded — the classic failure of a projection sheet is a player table that
+quietly pays out more touchdowns than the projected score can fund.
+
+**The script is predictable from the matchup.** A team starts at its neutral
+pass rate and moves for the four things that actually move it: expected margin
+(trailing teams throw), the softer side of the defence across the ball, weather,
+and rest. Every adjustment carries its size and its reason:
+
+```
+  KC script: 55% pass / 45% run (neutral 59%)
       Game script           -5.2  Priced as favoured by 6.5. Leading teams run out the clock.
-      Opponent's soft spot  +4.1  IND's pass defense is the weaker unit, so KC should attack it.
+      Opponent's soft spot  +3.5  IND's pass defense is the weaker unit, so KC should attack it.
       Weather               -2.8  14 mph wind, 67% chance of rain.
       Short week            +1.0  1 fewer days than the opponent.
-      Protection risk       -1.9  IND's rush grades well ahead of KC's protection.
 ```
-
-That projected pass rate then feeds back into exposure, which is the point:
-*"will they throw more or run more"* is not a separate section of the report,
-it is the input that decides which mismatches matter.
-
-### The leverage rail
-
-In the HTML report every axis is drawn on a shared 1–32 ruler where **further
-left is better at your job**. The offence's marker and the marker of the
-defence trying to stop it sit on the same scale, so the distance between them
-*is* the mismatch, and the span is filled in the colour of whichever team owns
-it. You can scan the column and see who is winning what without reading a
-number.
 
 ### Open questions
 
-The most honest output the model produces. When last season and this season
-flatly contradict each other, the blend papers over it with an average nobody
-believes — so those metrics are surfaced as their own section rather than
-buried:
-
-```
-  IND  defense  Run defense              4 ->  32   blended  12.9
-  IND  offense  Explosive plays          2 ->  28   blended   8.8
-  KC   defense  3rd down defense        29 ->   6   blended  25.1
-```
-
-Indianapolis allowed the second-fewest yards per carry in football in 2025 and
-then gave up 202 rushing yards in Week 1. One of those is lying. The report
-says so instead of pretending the average is knowledge.
+Where last season and this season flatly contradict each other, the blend papers
+over it with an average nobody believes — so the loudest contradiction is called
+out rather than buried. Ordering weights disagreement by confidence: two
+published figures that clash are a real question about a real team, while two of
+the author's own estimates that clash are a question about the estimates.
 
 ### Injuries are per-axis
 
-A rank is a property of the eleven men who will be on the field, not of a
-jersey. A left tackle who is out does not make the whole offence worse by a
-constant — he wrecks *pass protection*, bleeds through to *passing*, and leaves
-the run game alone. So an injury names the axes it touches and how much of it
-lands on each:
+A rank belongs to the eleven men on the field, not to a jersey. A left tackle
+who is out wrecks *pass protection*, bleeds into *passing*, and leaves the run
+game alone:
 
 ```json
 {"player": "Josh Simmons", "pos": "LT", "status": "out", "injury": "back",
  "units": ["offense"], "axes": {"pass_protect": 1.0, "pass": 0.35}, "impact": 0.75}
 ```
 
-A bare list (`"axes": ["pressure", "rush"]`) is read as full weight on each.
+A bare list (`"axes": ["pressure", "rush"]`) means full weight on each.
 Designation scales the cost: `out` 1.0, `doubtful` 0.65, `questionable` 0.30.
-
-### Every number says where it came from
-
-Ranks are badged **measured** (from a published figure), **part** (one season
-published, one estimated) or **est** (inferred from surrounding reporting, not
-a published league table). Estimates are the author's inference and the report
-labels them as such rather than laundering them into the same typeface as a
-real number.
 
 ### Limits
 
-Leverage scores weight units against units. They do not price quarterback play,
-home field, fourth-quarter coaching, or special teams. **Do not read the net
-figure as a point spread** — where it disagrees with the market, the market is
-usually pricing something the board deliberately does not.
+These are central estimates, not forecasts of one game — real outcomes scatter
+widely around them. Ranks are badged **measured**, **part** or **est** in the
+game file, and a handful are inferred from reporting rather than published
+tables. Leverage weights units against units and does not price quarterback
+play, home field, late-game coaching or special teams.
 
 ---
 
