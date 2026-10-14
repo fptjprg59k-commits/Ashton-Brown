@@ -132,6 +132,39 @@ on where the league is in its rollover. Pass `--season-type preseason`
 
 ---
 
+## Analyze a screen recording
+
+`docs/prop-analyzer.html` is a standalone page built for phones. Upload a
+screen recording, or screenshots, that shows the live box score and the prop
+board. The page returns one hit percentage per prop, sorted from most to least
+likely.
+
+1. **Frames.** The page decodes the video in the browser and samples it about
+   three times a second. It keeps only frames that differ visibly from the
+   last one it kept, so a slow scroll becomes a short set of distinct screens.
+2. **Reading.** Claude reads those frames for the score, the clock, every
+   player's stats, and every prop with its odds. Both sides of a market are
+   kept, and a market seen in several frames is counted once.
+3. **Context.** A second Claude call adds season per-game averages,
+   opponent-strength multipliers, the chance each player finishes the game,
+   weather, and the pregame spread and total.
+4. **Probability.** A 20,000-run simulation of the rest of the game is run in
+   the browser for each stat. The current pace is regressed toward the season
+   average, and the volume is adjusted for game script, blowout risk, the
+   opponent and weather. Yardage is simulated touch by touch, so the "longest"
+   markets work too. The result is then blended with the book's no-vig price,
+   weighted 65% model and 35% market.
+
+Props that have already cashed or lost are left out of the ranking and listed
+separately. Tap a prop to see what drove its number. When no recording has
+been loaded, the page shows a clearly labelled example game.
+
+The page reads the recording through its built-in Claude access, so it has to
+be opened on claude.ai or in the Claude app. Opened as a local file, it shows
+only the example board.
+
+---
+
 ## Read this before you rely on it
 
 Three things are true and worth knowing up front.

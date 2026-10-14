@@ -1,0 +1,809 @@
+<title>Halftime Prop Analyzer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, phone first. Upload card, then the scoreboard strip, then the ranked list. */
+:root {
+  --bg: #f1f4f1;
+  --surface: #ffffff;
+  --sunk: #e7ece8;
+  --ink: #14201a;
+  --muted: #5b6a62;
+  --line: #d6ddd8;
+  --accent: #1d5c47;
+  --accent-ink: #ffffff;
+  --hi: #23804f;
+  --mid: #a8701a;
+  --lo: #b1483a;
+  --hi-soft: #dcefe3;
+  --mid-soft: #f5ead5;
+  --lo-soft: #f6e0dc;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1412; --surface: #161f1b; --sunk: #1d2823; --ink: #e4ebe7; --muted: #92a299; --line: #29352f;
+    --accent: #5fb892; --accent-ink: #0e1412; --hi: #4cc38a; --mid: #e0a54a; --lo: #e57d6e;
+    --hi-soft: #183326; --mid-soft: #33291a; --lo-soft: #3a211d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1412; --surface: #161f1b; --sunk: #1d2823; --ink: #e4ebe7; --muted: #92a299; --line: #29352f;
+  --accent: #5fb892; --accent-ink: #0e1412; --hi: #4cc38a; --mid: #e0a54a; --lo: #e57d6e;
+  --hi-soft: #183326; --mid-soft: #33291a; --lo-soft: #3a211d; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+.wrap {
+  max-width: 720px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+header h1 {
+  font: 700 2.1rem/1 var(--display); letter-spacing: .01em; text-transform: uppercase; margin: 0;
+  text-wrap: balance;
+}
+header p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
+
+.upload {
+  background: var(--surface); border: 1.5px dashed var(--line); border-radius: 14px;
+  padding: 18px; display: flex; flex-direction: column; gap: 12px;
+}
+.upload.drag { border-color: var(--accent); }
+.upload .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn {
+  appearance: none; border: 0; border-radius: 10px; padding: 12px 18px; cursor: pointer;
+  font: 600 15px/1 var(--body); background: var(--accent); color: var(--accent-ink);
+}
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn:focus-visible, summary:focus-visible, .prop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hint { color: var(--muted); font-size: 13px; }
+#fileName { font-family: var(--mono); font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.steps li { display: flex; gap: 10px; align-items: baseline; color: var(--muted); font-size: 14px; }
+.steps li::before { content: ""; flex: none; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--line); transform: translateY(1px); }
+.steps li.on { color: var(--ink); }
+.steps li.on::before { border-color: var(--accent); background: var(--accent); animation: pulse 1.1s ease-in-out infinite; }
+.steps li.done::before { border-color: var(--hi); background: var(--hi); }
+.steps li.fail { color: var(--lo); }
+.steps li.fail::before { border-color: var(--lo); background: var(--lo); }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .steps li.on::before { animation: none; } }
+.err { background: var(--lo-soft); color: var(--ink); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+
+.board-head { display: flex; flex-direction: column; gap: 10px; }
+.tag {
+  align-self: flex-start; font: 600 11px/1 var(--body); letter-spacing: .08em; text-transform: uppercase;
+  padding: 5px 8px; border-radius: 6px; background: var(--mid-soft); color: var(--ink);
+}
+.score {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+  background: var(--surface); border-radius: 14px; padding: 14px 16px; border: 1px solid var(--line);
+}
+.team { display: flex; flex-direction: column; min-width: 0; }
+.team.r { align-items: flex-end; text-align: right; }
+.team .ab { font: 700 1.05rem/1 var(--display); letter-spacing: .06em; color: var(--muted); }
+.team .pts { font: 700 2.6rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.clock { text-align: center; font: 600 13px/1.3 var(--mono); color: var(--muted); }
+.clock b { display: block; font: 700 1.1rem/1 var(--display); letter-spacing: .06em; color: var(--accent); text-transform: uppercase; }
+.meta { color: var(--muted); font-size: 13px; }
+
+.list { display: flex; flex-direction: column; gap: 8px; }
+.prop {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  display: grid; grid-template-columns: 78px 1fr; gap: 0 14px; padding: 12px 14px; cursor: pointer;
+}
+.pct { grid-row: span 2; display: flex; flex-direction: column; justify-content: center; align-items: center;
+  border-radius: 9px; padding: 6px 0; font: 700 1.75rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.pct small { font: 600 10px/1.2 var(--body); letter-spacing: .08em; text-transform: uppercase; margin-top: 3px; opacity: .8; }
+.pct.hi { background: var(--hi-soft); color: var(--hi); }
+.pct.mid { background: var(--mid-soft); color: var(--mid); }
+.pct.lo { background: var(--lo-soft); color: var(--lo); }
+.pname { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.pline { color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0; }
+.pline .odds { font-family: var(--mono); font-size: 13px; }
+.prog { grid-column: 2; display: flex; align-items: center; gap: 8px; margin-top: 6px; font: 500 12px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.bar { position: relative; flex: 1; height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
+.bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 3px; }
+.why { grid-column: 1 / -1; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; }
+.why ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.why .split { margin-top: 8px; color: var(--muted); font: 500 12px/1.4 var(--mono); }
+.rank { font: 600 12px/1 var(--mono); color: var(--muted); margin-right: 6px; }
+
+details.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+details.box summary { cursor: pointer; font-weight: 600; }
+.tbl { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; font: 500 12.5px/1.4 var(--mono); font-variant-numeric: tabular-nums; width: 100%; }
+th, td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; }
+h2 { font: 700 1.3rem/1.1 var(--display); text-transform: uppercase; letter-spacing: .03em; margin: 10px 0 0; }
+.foot { color: var(--muted); font-size: 12.5px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Halftime Prop Analyzer</h1>
+    <p>Upload a screen recording that shows the live stats and the prop board. Every prop gets one number: the chance it hits, ranked from most to least likely.</p>
+  </header>
+
+  <section class="upload" id="drop">
+    <div class="row">
+      <label class="btn" for="file" id="pickBtn">Choose recording</label>
+      <input id="file" type="file" accept="video/*,image/*" multiple hidden>
+      <button class="btn ghost" id="stopBtn" type="button" hidden>Stop</button>
+      <span id="fileName"></span>
+    </div>
+    <div class="hint" id="hint">Scroll slowly through the box score and every prop tab while recording. Screenshots work too. You can pick several files at once.</div>
+    <ol class="steps" id="steps" hidden>
+      <li data-s="frames">Pulling frames from the recording</li>
+      <li data-s="read">Reading the stats and props</li>
+      <li data-s="research">Checking season averages, matchups and injuries</li>
+      <li data-s="calc">Simulating the rest of the game</li>
+    </ol>
+    <div class="err" id="err" hidden></div>
+  </section>
+
+  <section class="board-head" id="head"></section>
+  <section class="list" id="list"></section>
+  <section id="settled"></section>
+  <section id="readout"></section>
+
+  <p class="foot">Estimates, not guarantees. Each number blends a 20,000-run simulation of the rest of the game (current pace regressed toward season averages, game script, opponent, injuries, blowout risk) with the book's own price. Bet only what you can afford to lose. Help: 1-800-GAMBLER.</p>
+</div>
+
+<script id="model">
+/* ---------- model: pure functions, no DOM ---------- */
+const MARKETS = {
+  pass_yds: "Pass Yds", pass_att: "Pass Att", pass_cmp: "Completions", pass_td: "Pass TDs", int: "Interceptions",
+  rush_yds: "Rush Yds", rush_att: "Rush Att", rush_td: "Rush TDs", rec: "Receptions", rec_yds: "Rec Yds",
+  targets: "Targets", rec_td: "Rec TDs", rush_rec_yds: "Rush + Rec Yds", pass_rush_yds: "Pass + Rush Yds",
+  longest_rec: "Longest Reception", longest_rush: "Longest Rush", anytime_td: "Anytime TD",
+  tackles: "Tackles + Ast", sacks: "Sacks", fg_made: "FGs Made", kick_pts: "Kicking Pts",
+  game_total: "Game Total", team_total: "Team Total", spread: "Spread", moneyline: "Moneyline", other: "",
+};
+// how each counted stat behaves: count dispersion k (Infinity = Poisson), touch stat + yards per touch for yardage
+const STAT = {
+  pass_att: { k: 14, flow: "pass" }, pass_cmp: { k: 14, flow: "pass" }, rec: { k: 6, flow: "pass" },
+  targets: { k: 6, flow: "pass" }, rush_att: { k: 6, flow: "rush" },
+  pass_td: { k: Infinity, flow: "pass", rare: true }, int: { k: Infinity, flow: "pass", rare: true },
+  rush_td: { k: Infinity, flow: "rush", rare: true }, rec_td: { k: Infinity, flow: "pass", rare: true },
+  tackles: { k: 5, flow: "none" }, sacks: { k: Infinity, flow: "none", rare: true },
+  fg_made: { k: Infinity, flow: "none" }, xp_made: { k: Infinity, flow: "none" },
+  pass_yds: { yards: true, touch: "pass_cmp", ypt: 11.0, cv: 0.95, shift: 0, flow: "pass" },
+  rush_yds: { yards: true, touch: "rush_att", ypt: 4.4, cv: 1.5, shift: -3, flow: "rush" },
+  rec_yds: { yards: true, touch: "rec", ypt: 11.5, cv: 0.85, shift: 0, flow: "pass" },
+};
+const COMPOSITE = {
+  rush_rec_yds: ["rush_yds", "rec_yds"], pass_rush_yds: ["pass_yds", "rush_yds"],
+};
+// league-ish per-game fallbacks by position, used only when no season average is known
+const FALLBACK = {
+  QB: { pass_att: 33, pass_cmp: 21.5, pass_yds: 230, pass_td: 1.4, int: 0.7, rush_att: 3.5, rush_yds: 16, rush_td: 0.12 },
+  RB: { rush_att: 14, rush_yds: 60, rush_td: 0.4, targets: 3.5, rec: 2.7, rec_yds: 20, rec_td: 0.1 },
+  WR: { targets: 6, rec: 4, rec_yds: 50, rec_td: 0.3, rush_att: 0.3, rush_yds: 2, rush_td: 0.01 },
+  TE: { targets: 4.5, rec: 3.2, rec_yds: 34, rec_td: 0.25, rush_att: 0, rush_yds: 0, rush_td: 0 },
+  K: { fg_made: 1.7, xp_made: 2.3 },
+  DEF: { tackles: 5, sacks: 0.3 },
+};
+
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function hashStr(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function normal(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+function gamma(r, shape) {
+  if (shape < 1) return gamma(r, shape + 1) * Math.pow(r() || 1e-12, 1 / shape);
+  const d = shape - 1 / 3, c = 1 / Math.sqrt(9 * d);
+  for (;;) { const x = normal(r); const v = Math.pow(1 + c * x, 3); if (v <= 0) continue; const u = r(); if (Math.log(u) < 0.5 * x * x + d - d * v + d * Math.log(v)) return d * v; }
+}
+function poisson(r, lam) {
+  if (lam <= 0) return 0;
+  if (lam > 40) return Math.max(0, Math.round(lam + Math.sqrt(lam) * normal(r)));
+  const L = Math.exp(-lam); let k = 0, p = 1; do { k++; p *= r(); } while (p > L); return k - 1;
+}
+function negbin(r, mean, k) { if (mean <= 0) return 0; if (!isFinite(k)) return poisson(r, mean); return poisson(r, gamma(r, k) * mean / k); }
+const sigmoid = x => 1 / (1 + Math.exp(-x));
+const logit = p => Math.log(p / (1 - p));
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+function implied(o) { o = Number(o); if (!isFinite(o) || o === 0) return null; return o < 0 ? -o / (-o + 100) : 100 / (o + 100); }
+function normName(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\b(jr|sr|ii|iii|iv)\b/g, "").replace(/[^a-z]/g, ""); }
+
+function gameClock(game) {
+  const st = String(game.status || "").toLowerCase();
+  if (/final/.test(st)) return { elapsed: 60, remaining: 0 };
+  if (/half/.test(st)) return { elapsed: 30, remaining: 30 };
+  const q = Number(game.quarter) || 3;
+  const [m, s] = String(game.clock || "15:00").split(":").map(Number);
+  const left = clamp((m || 0) + (s || 0) / 60, 0, 15);
+  if (q >= 5) return { elapsed: 60, remaining: Math.max(left, 0) * 0.6 };
+  const elapsed = (q - 1) * 15 + (15 - left);
+  return { elapsed, remaining: Math.max(0, 60 - elapsed) };
+}
+
+// Everything the model needs about one game, normalised.
+function buildContext(data) {
+  const g = data.game || {};
+  const home = g.home || {}, away = g.away || {};
+  const { elapsed, remaining } = gameClock(g);
+  const ctx = data.context || {};
+  const cg = ctx.game || {};
+  const teams = {};
+  teams[(home.abbr || "HOME").toUpperCase()] = { score: Number(home.score) || 0, side: "home" };
+  teams[(away.abbr || "AWAY").toUpperCase()] = { score: Number(away.score) || 0, side: "away" };
+  const abbrs = Object.keys(teams);
+  const spread = isFinite(cg.pregame_spread_home) && cg.pregame_spread_home !== null ? Number(cg.pregame_spread_home) : null;
+  const total = isFinite(cg.pregame_total) && cg.pregame_total !== null ? Number(cg.pregame_total) : null;
+  const T = total || 45, S = spread || 0;
+  teams[abbrs[0]].ppg = T / 2 - S / 2; teams[abbrs[1]].ppg = T / 2 + S / 2;
+  const priorByName = {};
+  for (const p of ctx.players || []) priorByName[normName(p.name)] = p;
+  return { data, elapsed, remaining, teams, abbrs, spread, total, priorByName, passEnv: Number(cg.pass_env_mult) || 1, weather: cg.weather || "" };
+}
+
+function findPlayer(ctx, name) {
+  const n = normName(name);
+  const list = ctx.data.players || [];
+  let p = list.find(x => normName(x.name) === n);
+  if (!p) { const last = n.slice(-6); p = list.find(x => normName(x.name).endsWith(last) && normName(x.name)[0] === n[0]); }
+  return p || null;
+}
+function teamOf(ctx, abbr) { return ctx.teams[String(abbr || "").toUpperCase()] || null; }
+function leadFor(ctx, abbr) {
+  const t = teamOf(ctx, abbr); if (!t) return 0;
+  const other = ctx.abbrs.find(a => a !== String(abbr).toUpperCase());
+  return t.score - ctx.teams[other].score;
+}
+
+// Expected remaining amount of one counted stat for one player, plus the reasons.
+function remainingMean(ctx, player, key, scope) {
+  const pos = String(player.position || "").toUpperCase().replace(/[^A-Z]/g, "");
+  const posKey = FALLBACK[pos] ? pos : /LB|DE|DT|CB|S|DL|DB/.test(pos) ? "DEF" : "WR";
+  const pri = ctx.priorByName[normName(player.name)] || {};
+  const perGame = pri.per_game || {};
+  const stats = player.stats || {};
+  let cur = Number(stats[key]) || 0;
+  const e = ctx.elapsed, r = scope === "second_half" ? Math.min(30, ctx.remaining) : ctx.remaining;
+  let prior = Number(perGame[key]);
+  let priorSource = "season";
+  if (!isFinite(prior)) {
+    const spec = STAT[key];
+    if (spec && spec.yards && isFinite(Number(perGame[spec.touch]))) { prior = Number(perGame[spec.touch]) * spec.ypt; priorSource = "derived"; }
+    else if (!spec?.yards && STAT[key] && key === "pass_cmp" && isFinite(Number(perGame.pass_att))) { prior = Number(perGame.pass_att) * 0.65; priorSource = "derived"; }
+    else { prior = FALLBACK[posKey][key] ?? 0; priorSource = "fallback"; }
+  }
+  const spec = STAT[key] || { k: 6, flow: "none" };
+  const W = spec.rare ? 120 : 45;
+  const w = e > 0 ? e / (e + W) : 0;
+  const pace = e > 0 ? cur / e : prior / 60;
+  let rate = w * pace + (1 - w) * prior / 60;
+  const why = [];
+  const lead = leadFor(ctx, player.team);
+  const z = lead / Math.sqrt(Math.max(r, 6));
+  let script = 1;
+  if (spec.flow === "pass") script = 1 - 0.2 * Math.tanh(z / 1.2);
+  if (spec.flow === "rush") script = 1 + 0.18 * Math.tanh(z / 1.2);
+  if (spec.flow === "pass" && pos !== "QB" && pos !== "K") script = 1 - 0.16 * Math.tanh(z / 1.2);
+  let blow = 1;
+  const big = Math.abs(lead);
+  if (big >= 10 && pos !== "K") blow = 1 - (lead > 0 ? 0.32 : 0.16) * sigmoid((big - 17) / 3.5) * Math.min(1, r / 30);
+  let env = 1;
+  if (spec.flow === "pass" && STAT[key]?.yards) env = ctx.passEnv;
+  const dm = Number((pri.defense_mult || {})[key]);
+  const def = isFinite(dm) ? clamp(dm, 0.7, 1.3) : 1;
+  const mean = Math.max(0, rate * r * script * blow * env * def);
+  const avail = isFinite(Number(pri.availability)) ? clamp(Number(pri.availability), 0, 1) : 1;
+  return { cur, prior, priorSource, pace: pace * 60, w, script, blow, env, def, mean, avail, lead, r, pos: posKey };
+}
+
+function simStat(ctx, player, key, scope, N, cache) {
+  const ck = player.name + "|" + key + "|" + scope;
+  if (cache[ck]) return cache[ck];
+  const m = remainingMean(ctx, player, key, scope);
+  const r = rng(hashStr(ck));
+  const tot = new Float64Array(N), mx = new Float64Array(N);
+  const spec = STAT[key] || { k: 6 };
+  const leaveP = 1 - m.avail;
+  if (spec.yards) {
+    const pri = ctx.priorByName[normName(player.name)] || {}; const pg = pri.per_game || {};
+    let ypt = spec.ypt;
+    if (isFinite(Number(pg[key])) && Number(pg[spec.touch]) > 0.5) ypt = clamp(Number(pg[key]) / Number(pg[spec.touch]), spec.ypt * 0.4, spec.ypt * 2);
+    const touches = m.mean / ypt, base = ypt - spec.shift, shape = 1 / (spec.cv * spec.cv), scale = base / shape;
+    for (let i = 0; i < N; i++) {
+      const play = r() < leaveP ? r() : 1;
+      const n = negbin(r, touches * play, 6);
+      let s = 0, best = 0;
+      for (let j = 0; j < n; j++) { const y = Math.round(gamma(r, shape) * scale + spec.shift); s += y; if (y > best) best = y; }
+      tot[i] = s; mx[i] = best;
+    }
+  } else {
+    for (let i = 0; i < N; i++) { const play = r() < leaveP ? r() : 1; tot[i] = negbin(r, m.mean * play, spec.k); }
+  }
+  return (cache[ck] = { m, tot, mx });
+}
+
+function simTeams(ctx, N, cache) {
+  if (cache.__teams) return cache.__teams;
+  const r = rng(hashStr("teams" + ctx.abbrs.join())), e = ctx.elapsed, rem = ctx.remaining;
+  const w = e > 0 ? e / (e + 60) : 0;
+  const out = {};
+  for (const a of ctx.abbrs) {
+    const t = ctx.teams[a];
+    const rate = w * (e > 0 ? t.score / e : t.ppg / 60) + (1 - w) * t.ppg / 60;
+    const mean = rate * rem, drives = Math.max(1, Math.round(11.3 * rem / 60));
+    const perDrive = mean / drives;
+    let pTD = 0.72 * perDrive / 7, pFG = 0.28 * perDrive / 3;
+    const s = pTD + pFG; if (s > 0.8) { pTD *= 0.8 / s; pFG *= 0.8 / s; }
+    const arr = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      let pts = 0; const d = drives + (r() < 0.5 ? 0 : (r() < 0.5 ? -1 : 1));
+      for (let j = 0; j < d; j++) { const u = r(); if (u < pTD) pts += 7; else if (u < pTD + pFG) pts += 3; }
+      arr[i] = pts;
+    }
+    out[a] = { mean, arr };
+  }
+  return (cache.__teams = out);
+}
+
+function marketProb(prop) {
+  const p1 = implied(prop.odds), p2 = implied(prop.opposing_odds);
+  if (p1 === null) return null;
+  if (p2 !== null && p1 + p2 > 0.9 && p1 + p2 < 1.3) return p1 / (p1 + p2);
+  return clamp(p1 - 0.025, 0.01, 0.99);
+}
+
+function fmt(x, d = 0) { return Number(x).toFixed(d); }
+function pctText(x) { return (x * 100 >= 0 ? "+" : "") + Math.round(x * 100) + "%"; }
+
+// One prop in, one probability (plus reasons) out.
+function evaluateProp(ctx, prop, N, cache) {
+  const key = prop.market_key in MARKETS ? prop.market_key : "other";
+  const side = String(prop.side || "over").toLowerCase();
+  const line = Number(prop.line);
+  const scope = /second|2nd|2h/i.test(prop.scope || "") ? "second_half" : "full_game";
+  const res = { prop, key, side, line, scope, reasons: [], settled: null, pModel: null, pMarket: marketProb(prop), progress: null };
+  const isUnder = side === "under" || side === "no";
+  const finish = (pOver, lowInfo) => {
+    let p = isUnder ? 1 - pOver : pOver;
+    res.pModel = clamp(p, 0.003, 0.997);
+    let final = res.pModel;
+    if (res.pMarket !== null) {
+      const wm = lowInfo ? 0.5 : 0.35;
+      final = sigmoid(wm * logit(clamp(res.pMarket, 0.01, 0.99)) + (1 - wm) * logit(clamp(res.pModel, 0.005, 0.995)));
+      res.reasons.push(`Book price implies ${Math.round(res.pMarket * 100)}% (no-vig); model says ${Math.round(res.pModel * 100)}%`);
+    }
+    res.p = clamp(final, 0.01, 0.99);
+    return res;
+  };
+
+  if (key === "other") {
+    const o = (ctx.data.context?.other || []).find(x => x.id === prop.id);
+    if (o && isFinite(Number(o.p))) { res.reasons.push(o.why || "Estimated from context"); return finish(isUnder ? 1 - Number(o.p) : Number(o.p), true); }
+    if (res.pMarket !== null) { res.reasons.push("No model for this market, so the book's no-vig price is used"); res.pModel = res.pMarket; res.p = res.pMarket; return res; }
+    return null;
+  }
+
+  // team and game markets
+  if (["game_total", "team_total", "spread", "moneyline"].includes(key)) {
+    const T = simTeams(ctx, N, cache);
+    const [a, b] = ctx.abbrs;
+    const scoreNow = x => scope === "second_half" ? 0 : ctx.teams[x].score;
+    const team = String(prop.team || "").toUpperCase();
+    const me = ctx.teams[team] ? team : a, op = me === a ? b : a;
+    let hit = 0, push = 0;
+    for (let i = 0; i < N; i++) {
+      const A = scoreNow(me) + T[me].arr[i], B = scoreNow(op) + T[op].arr[i];
+      let v;
+      if (key === "game_total") v = A + B - line;
+      else if (key === "team_total") v = A - line;
+      else if (key === "spread") v = A - B + line;
+      else { v = A - B; if (v === 0) v = (i % 2 ? 1 : -1); }
+      if (v > 0) hit++; else if (v === 0) push++;
+    }
+    let pOver = hit / N;
+    if (key === "game_total" || key === "team_total") {
+      const now = key === "game_total" ? scoreNow(a) + scoreNow(b) : scoreNow(me);
+      const add = key === "game_total" ? T[a].mean + T[b].mean : T[me].mean;
+      res.progress = { cur: now, line };
+      res.reasons.push(`${now} on the board, about ${fmt(add)} more projected in ${fmt(ctx.remaining)} min`);
+      if (ctx.total) res.reasons.push(`Pregame total ${ctx.total} sets the scoring pace prior`);
+    } else {
+      const lead = scoreNow(me) - scoreNow(op);
+      res.reasons.push(`${me} ${lead >= 0 ? "leads by " + lead : "trails by " + -lead} with ${fmt(ctx.remaining)} min left`);
+      if (ctx.spread !== null) res.reasons.push(`Pregame line: home ${ctx.spread > 0 ? "+" : ""}${ctx.spread}`);
+      if (push) res.reasons.push(`Pushes ${Math.round(push / N * 100)}% of the time`);
+    }
+    if (key === "spread" || key === "moneyline") {
+      // for these the "side" is the team; treat as an over on that team
+      return finish(pOver, false);
+    }
+    return finish(pOver, false);
+  }
+
+  const player = findPlayer(ctx, prop.player);
+  const pl = player || { name: prop.player, team: prop.team, position: prop.position || "", stats: {} };
+  if (!pl.team && prop.team) pl.team = prop.team;
+  const pri = ctx.priorByName[normName(pl.name)] || {};
+  if (!player) res.reasons.push("Player not found in the box score, so no current stats are counted");
+
+  if (key === "anytime_td") {
+    const comps = String(pl.position).toUpperCase() === "QB" ? ["rush_td"] : ["rush_td", "rec_td"];
+    const cur = comps.reduce((s, k) => s + (Number(pl.stats?.[k]) || 0), 0) + (Number(pl.stats?.td) || 0);
+    if (scope === "full_game" && cur >= 1) { res.settled = isUnder ? "lost" : "hit"; res.p = isUnder ? 0 : 1; res.reasons.push("Already scored"); return res; }
+    const sims = comps.map(k => simStat(ctx, pl, k, scope, N, cache));
+    let hit = 0; for (let i = 0; i < N; i++) { if (sims.reduce((s, x) => s + x.tot[i], 0) >= 1) hit++; }
+    const lam = sims.reduce((s, x) => s + x.m.mean, 0);
+    res.reasons.push(`Projected ${fmt(lam, 2)} TDs the rest of the way`);
+    addPlayerReasons(res, sims[0].m, pri, "rush_td");
+    return finish(hit / N, false);
+  }
+
+  if (key === "longest_rec" || key === "longest_rush") {
+    const base = key === "longest_rec" ? "rec_yds" : "rush_yds";
+    const curLong = scope === "full_game" ? Number(pl.stats?.[key]) || 0 : 0;
+    if (curLong > line) { res.settled = isUnder ? "lost" : "hit"; res.p = isUnder ? 0 : 1; res.reasons.push(`Already has a ${curLong}-yard gain`); return res; }
+    const s = simStat(ctx, pl, base, scope, N, cache);
+    let hit = 0; for (let i = 0; i < N; i++) if (s.mx[i] > line) hit++;
+    res.progress = { cur: curLong, line };
+    res.reasons.push(`Longest so far ${curLong}; needs one gain over ${line}`);
+    addPlayerReasons(res, s.m, pri, base);
+    return finish(hit / N, false);
+  }
+
+  const comps = key === "kick_pts" ? [["fg_made", 3], ["xp_made", 1]] : (COMPOSITE[key] || [key]).map(k => [k, 1]);
+  const sims = comps.map(([k]) => simStat(ctx, pl, k, scope, N, cache));
+  let cur = 0;
+  comps.forEach(([k, mult], i) => { cur += (scope === "full_game" ? sims[i].m.cur : 0) * mult; });
+  if (scope === "second_half" && ctx.elapsed > 30) res.reasons.push("Second-half line read after halftime; current-half stats are not separated in the feed");
+  if (cur > line) {
+    res.settled = isUnder ? "lost" : "hit"; res.p = isUnder ? 0 : 1;
+    res.reasons.push(`Already at ${cur} against a line of ${line}`); return res;
+  }
+  if (ctx.remaining <= 0) { res.settled = isUnder ? "hit" : "lost"; res.p = isUnder ? 1 : 0; res.reasons.push("Game is over"); return res; }
+  let hit = 0;
+  for (let i = 0; i < N; i++) { let t = cur; comps.forEach(([, mult], j) => { t += sims[j].tot[i] * mult; }); if (t > line) hit++; }
+  const remMean = comps.reduce((s, [, mult], j) => s + sims[j].m.mean * mult, 0);
+  res.progress = { cur, line };
+  res.reasons.push(`Has ${fmt(cur, cur % 1 ? 1 : 0)}, needs ${fmt(Math.max(0, Math.floor(line - cur) + 1))} more; projects ${fmt(remMean, remMean < 10 ? 1 : 0)} more in ${fmt(sims[0].m.r)} min`);
+  addPlayerReasons(res, sims[0].m, pri, comps[0][0]);
+  const lowInfo = sims.every(s => s.m.priorSource === "fallback");
+  if (lowInfo) res.reasons.push("No season average found, so a position default was used");
+  return finish(hit / N, lowInfo);
+}
+
+function addPlayerReasons(res, m, pri, key) {
+  if (m.priorSource !== "fallback" && m.prior > 0) {
+    const label = MARKETS[key] || key;
+    res.reasons.push(`Season avg ${fmt(m.prior, m.prior < 10 ? 1 : 0)} ${label.toLowerCase()}/game vs ${fmt(m.pace, m.pace < 10 ? 1 : 0)} pace today (today counts ${Math.round(m.w * 100)}%)`);
+  }
+  if (Math.abs(m.script - 1) >= 0.03) res.reasons.push(`Game script (${m.lead > 0 ? "up " + m.lead : m.lead < 0 ? "down " + -m.lead : "tied"}): ${pctText(m.script - 1)} volume`);
+  if (m.blow < 0.97) res.reasons.push(`Blowout risk could sit starters late: ${pctText(m.blow - 1)}`);
+  if (Math.abs(m.def - 1) >= 0.03) res.reasons.push(`Opponent matchup: ${pctText(m.def - 1)}`);
+  if (Math.abs(m.env - 1) >= 0.03) res.reasons.push(`Weather: ${pctText(m.env - 1)} passing`);
+  if (m.avail < 0.97) res.reasons.push(`Health: ${Math.round(m.avail * 100)}% chance to finish the game`);
+  if (pri.note) res.reasons.push(pri.note);
+}
+
+function analyzeAll(data, N = 20000) {
+  const ctx = buildContext(data), cache = {};
+  const live = [], settled = [];
+  (data.props || []).forEach((p, i) => {
+    if (!p.id) p.id = "p" + i;
+    let r;
+    try { r = evaluateProp(ctx, p, N, cache); } catch (e) { r = null; }
+    if (!r) return;
+    (r.settled ? settled : live).push(r);
+  });
+  live.sort((a, b) => b.p - a.p);
+  return { ctx, live, settled };
+}
+if (typeof module !== "undefined") module.exports = { analyzeAll, gameClock, implied, marketProb };
+</script>
+
+<script id="example-data" type="application/json">
+{
+  "example": true,
+  "game": { "home": {"abbr": "BAL", "name": "Ravens", "score": 17}, "away": {"abbr": "CIN", "name": "Bengals", "score": 10}, "status": "Halftime", "quarter": 2, "clock": "0:00" },
+  "players": [
+    {"name": "Lamar Jackson", "team": "BAL", "position": "QB", "stats": {"pass_att": 17, "pass_cmp": 12, "pass_yds": 145, "pass_td": 1, "rush_att": 5, "rush_yds": 31, "longest_rush": 14}},
+    {"name": "Derrick Henry", "team": "BAL", "position": "RB", "stats": {"rush_att": 11, "rush_yds": 68, "rush_td": 1, "longest_rush": 22, "targets": 1, "rec": 1, "rec_yds": 6}},
+    {"name": "Zay Flowers", "team": "BAL", "position": "WR", "stats": {"targets": 6, "rec": 4, "rec_yds": 52, "longest_rec": 21}},
+    {"name": "Rashod Bateman", "team": "BAL", "position": "WR", "stats": {"targets": 4, "rec": 2, "rec_yds": 38, "rec_td": 1, "longest_rec": 29}},
+    {"name": "Mark Andrews", "team": "BAL", "position": "TE", "stats": {"targets": 4, "rec": 3, "rec_yds": 31, "longest_rec": 14}},
+    {"name": "Joe Burrow", "team": "CIN", "position": "QB", "stats": {"pass_att": 21, "pass_cmp": 14, "pass_yds": 168, "pass_td": 1, "rush_att": 2, "rush_yds": 9}},
+    {"name": "Chase Brown", "team": "CIN", "position": "RB", "stats": {"rush_att": 9, "rush_yds": 34, "longest_rush": 11, "targets": 2, "rec": 1, "rec_yds": 6}},
+    {"name": "Ja'Marr Chase", "team": "CIN", "position": "WR", "stats": {"targets": 8, "rec": 6, "rec_yds": 82, "rec_td": 1, "longest_rec": 34}},
+    {"name": "Tee Higgins", "team": "CIN", "position": "WR", "stats": {"targets": 5, "rec": 3, "rec_yds": 41, "longest_rec": 19}}
+  ],
+  "props": [
+    {"player": "Ja'Marr Chase", "team": "CIN", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 121.5, "odds": -105, "opposing_odds": -114},
+    {"player": "Ja'Marr Chase", "team": "CIN", "market_key": "rec", "market": "Receptions", "side": "over", "line": 9.5, "odds": 142, "opposing_odds": -171},
+    {"player": "Tee Higgins", "team": "CIN", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 63.5, "odds": 119, "opposing_odds": -143},
+    {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_yds", "market": "Passing Yards", "side": "over", "line": 301.5, "odds": -107, "opposing_odds": -112},
+    {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_td", "market": "Passing TDs", "side": "over", "line": 1.5, "odds": -137, "opposing_odds": 114},
+    {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_yds", "market": "Passing Yards", "side": "over", "line": 244.5, "odds": -1100, "opposing_odds": 679},
+    {"player": "Chase Brown", "team": "CIN", "market_key": "rush_yds", "market": "Rushing Yards", "side": "over", "line": 50.5, "odds": -131, "opposing_odds": 109},
+    {"player": "Chase Brown", "team": "CIN", "market_key": "anytime_td", "market": "Anytime TD", "side": "yes", "line": 0.5, "odds": 518},
+    {"player": "Derrick Henry", "team": "BAL", "market_key": "rush_yds", "market": "Rushing Yards", "side": "over", "line": 140.5, "odds": -123, "opposing_odds": 102},
+    {"player": "Derrick Henry", "team": "BAL", "market_key": "rush_att", "market": "Rushing Attempts", "side": "over", "line": 23.5, "odds": -113, "opposing_odds": -106},
+    {"player": "Lamar Jackson", "team": "BAL", "market_key": "pass_yds", "market": "Passing Yards", "side": "over", "line": 229.5, "odds": -109, "opposing_odds": -110},
+    {"player": "Lamar Jackson", "team": "BAL", "market_key": "rush_yds", "market": "Rushing Yards", "side": "over", "line": 60.5, "odds": -104, "opposing_odds": -116},
+    {"player": "Zay Flowers", "team": "BAL", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 77.5, "odds": -106, "opposing_odds": -112},
+    {"player": "Zay Flowers", "team": "BAL", "market_key": "rec", "market": "Receptions", "side": "over", "line": 4.5, "odds": -1233, "opposing_odds": 733},
+    {"player": "Mark Andrews", "team": "BAL", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 48.5, "odds": -105, "opposing_odds": -114},
+    {"player": "Rashod Bateman", "team": "BAL", "market_key": "anytime_td", "market": "Anytime TD", "side": "yes", "line": 0.5, "odds": 230},
+    {"player": null, "team": null, "market_key": "game_total", "market": "Total Points", "side": "over", "line": 47.5, "odds": -110, "opposing_odds": -110},
+    {"player": null, "team": "CIN", "market_key": "spread", "market": "Spread", "side": "over", "line": 6.5, "odds": -115, "opposing_odds": -105}
+  ],
+  "context": {
+    "game": {"pregame_spread_home": -3.5, "pregame_total": 47.5, "weather": "41F, wind 18 mph", "pass_env_mult": 0.95},
+    "players": [
+      {"name": "Lamar Jackson", "per_game": {"pass_att": 29, "pass_cmp": 19.5, "pass_yds": 235, "pass_td": 2.0, "rush_att": 8, "rush_yds": 52}, "availability": 1},
+      {"name": "Derrick Henry", "per_game": {"rush_att": 20, "rush_yds": 105, "rush_td": 0.9, "rec": 1, "rec_yds": 9}, "defense_mult": {"rush_yds": 1.08}, "availability": 1},
+      {"name": "Zay Flowers", "per_game": {"targets": 7, "rec": 5, "rec_yds": 64, "rec_td": 0.3}, "availability": 1},
+      {"name": "Rashod Bateman", "per_game": {"targets": 4.5, "rec": 2.8, "rec_yds": 42, "rec_td": 0.45}, "availability": 1},
+      {"name": "Mark Andrews", "per_game": {"targets": 4.5, "rec": 3.3, "rec_yds": 36, "rec_td": 0.5}, "availability": 1},
+      {"name": "Joe Burrow", "per_game": {"pass_att": 38, "pass_cmp": 26, "pass_yds": 280, "pass_td": 2.2, "rush_att": 2, "rush_yds": 8}, "defense_mult": {"pass_yds": 0.95}, "availability": 1},
+      {"name": "Chase Brown", "per_game": {"rush_att": 15, "rush_yds": 68, "rush_td": 0.5, "rec": 3, "rec_yds": 25, "rec_td": 0.15}, "availability": 1},
+      {"name": "Ja'Marr Chase", "per_game": {"targets": 10, "rec": 7.5, "rec_yds": 100, "rec_td": 0.85}, "defense_mult": {"rec_yds": 0.92}, "availability": 1},
+      {"name": "Tee Higgins", "per_game": {"targets": 7, "rec": 4.8, "rec_yds": 62, "rec_td": 0.55}, "availability": 0.9, "note": "Questionable tag coming in; watch for a limited snap count"}
+    ]
+  }
+}
+</script>
+
+<script>
+/* ---------- page ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const KEYS = Object.keys(MARKETS).join(", ");
+let sample = null, ctl = null;
+
+function oddsText(o) { o = Number(o); return isFinite(o) && o !== 0 ? (o > 0 ? "+" + o : String(o)) : ""; }
+function propTitle(r) {
+  const p = r.prop, side = r.side;
+  const mk = MARKETS[r.key] || p.market || "";
+  const scope = r.scope === "second_half" ? " (2H)" : "";
+  if (r.key === "anytime_td") return { who: p.player, what: `${side === "no" ? "No" : ""} Anytime TD${scope}`.trim() };
+  if (r.key === "moneyline") return { who: p.team || "", what: "Moneyline" + scope };
+  if (r.key === "spread") return { who: p.team || "", what: `Spread ${r.line > 0 ? "+" : ""}${r.line}${scope}` };
+  if (r.key === "game_total") return { who: "Game total", what: `${side === "under" ? "Under" : "Over"} ${r.line}${scope}` };
+  if (r.key === "team_total") return { who: `${p.team || ""} team total`, what: `${side === "under" ? "Under" : "Over"} ${r.line}${scope}` };
+  const sd = side === "under" ? "Under" : side === "no" ? "No" : side === "yes" ? "Yes" : "Over";
+  return { who: p.player || p.team || "", what: `${sd} ${isFinite(r.line) ? r.line : ""} ${mk || p.market}${scope}`.replace(/\s+/g, " ").trim() };
+}
+function tone(p) { return p >= 0.7 ? "hi" : p >= 0.5 ? "mid" : "lo"; }
+
+function render(data, result) {
+  const g = data.game || {}, h = g.home || {}, a = g.away || {};
+  const st = /half/i.test(g.status || "") ? "Halftime" : g.status || (g.quarter ? `Q${g.quarter}` : "");
+  const c = result.ctx;
+  $("#head").innerHTML = `
+    ${data.example ? '<span class="tag">Example game · upload your recording to analyze yours</span>' : ""}
+    <div class="score">
+      <div class="team"><span class="ab">${esc(a.abbr || "AWAY")}</span><span class="pts">${esc(a.score ?? "")}</span></div>
+      <div class="clock"><b>${esc(st)}</b>${/half/i.test(st) ? "" : esc(g.clock || "")}<br>${Math.round(c.remaining)} min left</div>
+      <div class="team r"><span class="ab">${esc(h.abbr || "HOME")}</span><span class="pts">${esc(h.score ?? "")}</span></div>
+    </div>
+    <div class="meta">${result.live.length} props ranked${result.settled.length ? ` · ${result.settled.length} already decided` : ""}${c.weather ? " · " + esc(c.weather) : ""}</div>`;
+
+  $("#list").innerHTML = result.live.map((r, i) => {
+    const t = propTitle(r), pc = Math.round(r.p * 100);
+    const prog = r.progress && isFinite(r.progress.line) && r.progress.line > 0
+      ? `<div class="prog"><span>${esc(r.progress.cur)}</span><span class="bar"><i style="width:${Math.min(100, r.progress.cur / r.progress.line * 100).toFixed(1)}%"></i></span><span>${esc(r.progress.line)}</span></div>` : "";
+    return `<article class="prop" tabindex="0" aria-expanded="false">
+      <div class="pct ${tone(r.p)}">${pc}%<small>to hit</small></div>
+      <div class="pname"><span class="rank">${i + 1}</span>${esc(t.who)}</div>
+      <div class="pline"><span>${esc(t.what)}</span><span class="odds">${esc(oddsText(r.prop.odds))}</span></div>
+      ${prog}
+      <div class="why" hidden><ul>${r.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
+    </article>`;
+  }).join("") || '<p class="hint">No props were found. Try a recording that shows the prop board more slowly.</p>';
+
+  $("#settled").innerHTML = result.settled.length ? `<details class="box"><summary>Already decided (${result.settled.length})</summary><div class="tbl"><table><tr><th>Prop</th><th>Result</th></tr>${result.settled.map(r => { const t = propTitle(r); return `<tr><td>${esc(t.who)} · ${esc(t.what)}</td><td>${r.settled === "hit" ? "Hit" : "Lost"}</td></tr>`; }).join("")}</table></div></details>` : "";
+
+  const cols = ["pass_yds", "pass_att", "pass_cmp", "pass_td", "rush_att", "rush_yds", "rush_td", "rec", "rec_yds", "rec_td"];
+  $("#readout").innerHTML = (data.players || []).length ? `<details class="box"><summary>What it read from the recording</summary><div class="tbl"><table><tr><th>Player</th><th>Tm</th>${cols.map(k => `<th>${esc(k.replace("_", " "))}</th>`).join("")}</tr>${data.players.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.team)}</td>${cols.map(k => `<td>${p.stats?.[k] ?? ""}</td>`).join("")}</tr>`).join("")}</table></div></details>` : "";
+}
+
+$("#list").addEventListener("click", ev => toggle(ev.target.closest(".prop")));
+$("#list").addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(ev.target.closest(".prop")); } });
+function toggle(el) { if (!el) return; const w = el.querySelector(".why"); w.hidden = !w.hidden; el.setAttribute("aria-expanded", String(!w.hidden)); }
+
+/* ---------- frames ---------- */
+function once(el, ev, ms = 8000) { return new Promise((res, rej) => { const t = setTimeout(() => rej(new Error("timeout " + ev)), ms); el.addEventListener(ev, () => { clearTimeout(t); res(); }, { once: true }); }); }
+async function seek(v, t) { if (Math.abs(v.currentTime - t) < 0.01) return; const p = once(v, "seeked", 5000); v.currentTime = t; await p; }
+function thumb(src, w, h) { const c = document.createElement("canvas"); c.width = 48; c.height = Math.max(8, Math.round(48 * h / w)); const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(src, 0, 0, c.width, c.height); const d = x.getImageData(0, 0, c.width, c.height).data; const g = new Float32Array(d.length / 4); for (let i = 0; i < g.length; i++) g[i] = d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11; return g; }
+function diff(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; }
+function toBlob(src, w, h) {
+  const k = Math.min(1, 1568 / Math.max(w, h)); const c = document.createElement("canvas");
+  c.width = Math.round(w * k); c.height = Math.round(h * k); c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+  return new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
+}
+async function framesFromVideo(file, onTick) {
+  const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "auto";
+  const url = URL.createObjectURL(file); v.src = url;
+  try {
+    await once(v, "loadeddata", 15000);
+    try { await v.play(); v.pause(); } catch {}
+    let dur = v.duration;
+    if (!isFinite(dur)) { await seek(v, 1e6).catch(() => {}); dur = v.duration || v.currentTime || 30; }
+    const step = clamp(dur / 180, 0.3, 1);
+    const out = []; let last = null;
+    for (let t = 0.05; t < dur; t += step) {
+      await seek(v, Math.min(t, dur - 0.05));
+      const W = v.videoWidth, H = v.videoHeight; if (!W) continue;
+      const th = thumb(v, W, H);
+      if (!last || diff(th, last) > 5) { out.push({ t, blob: await toBlob(v, W, H) }); last = th; }
+      onTick?.(t / dur, out.length);
+    }
+    return out;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function framesFromImage(file) {
+  const bmp = await createImageBitmap(file);
+  return [{ t: 0, blob: await toBlob(bmp, bmp.width, bmp.height) }];
+}
+function pickEven(arr, n) { if (arr.length <= n) return arr; const out = []; for (let i = 0; i < n; i++) out.push(arr[Math.round(i * (arr.length - 1) / (n - 1))]); return out; }
+
+/* ---------- Claude ---------- */
+const EXTRACT_PROMPT = (i, n) => `These ${n} images are frames, in time order, from a screen recording of a live NFL game (batch ${i}). The recording shows a box score / live stats and a sportsbook prop board.
+
+Read EVERYTHING visible and reply with only this JSON:
+{"game":{"home":{"abbr":"BAL","name":"Ravens","score":17},"away":{"abbr":"CIN","name":"Bengals","score":10},"status":"Halftime|Q3|Final|...","quarter":2,"clock":"0:00"},
+ "players":[{"name":"Full Name","team":"ABBR","position":"QB|RB|WR|TE|K|LB|...","stats":{"pass_att":0,"pass_cmp":0,"pass_yds":0,"pass_td":0,"int":0,"rush_att":0,"rush_yds":0,"rush_td":0,"longest_rush":0,"targets":0,"rec":0,"rec_yds":0,"rec_td":0,"longest_rec":0,"tackles":0,"sacks":0,"fg_made":0,"xp_made":0}}],
+ "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"scope":"full_game|second_half"}]}
+
+Rules:
+- Use the same team abbreviations in players, props and game. Unknown field: null (or omit the stat).
+- Include only stats you can actually read; never guess numbers.
+- One entry per side: if Over and Under are both shown, emit two entries, each with its own odds and the other side's odds as opposing_odds.
+- American odds as signed integers. If decimal odds are shown, convert to American.
+- Spread: side "over", line = the handicap for that team (e.g. -3.5), team set. Moneyline: side "over", line 0, team set. Team total: team set.
+- "1st Half"/"2nd Half"/"3rd Quarter" markets: scope "second_half" for 2nd-half lines; skip 1st-half and 1st-quarter lines, they are settled.
+- Anything you cannot map goes in with market_key "other".
+- If these frames show nothing relevant, return empty arrays.`;
+
+function mergeBatches(parts) {
+  const out = { game: {}, players: [], props: [] };
+  const pMap = new Map(), prMap = new Map();
+  for (const b of parts) {
+    if (!b || typeof b !== "object") continue;
+    const g = b.game || {};
+    for (const s of ["home", "away"]) {
+      if (g[s]) { out.game[s] = out.game[s] || {}; for (const [k, v] of Object.entries(g[s])) if (v !== null && v !== undefined && v !== "") out.game[s][k] = k === "score" ? Math.max(Number(v) || 0, Number(out.game[s][k]) || 0) : v; }
+    }
+    for (const k of ["status", "quarter", "clock"]) if (g[k] !== null && g[k] !== undefined && g[k] !== "") out.game[k] = g[k];
+    for (const p of b.players || []) {
+      if (!p?.name) continue; const k = normName(p.name);
+      const cur = pMap.get(k) || { name: p.name, team: p.team, position: p.position, stats: {} };
+      cur.team = cur.team || p.team; cur.position = cur.position || p.position;
+      for (const [s, v] of Object.entries(p.stats || {})) { const n = Number(v); if (isFinite(n) && v !== null) cur.stats[s] = Math.max(n, cur.stats[s] ?? -Infinity); }
+      pMap.set(k, cur);
+    }
+    for (const p of b.props || []) {
+      if (!p || (p.line === null && !["moneyline", "anytime_td"].includes(p.market_key))) continue;
+      const k = [normName(p.player), String(p.team || "").toUpperCase(), p.market_key, p.market_key === "other" ? normName(p.market) : "", String(p.side).toLowerCase(), Number(p.line), p.scope || ""].join("|");
+      prMap.set(k, { ...(prMap.get(k) || {}), ...Object.fromEntries(Object.entries(p).filter(([, v]) => v !== null && v !== undefined)) });
+    }
+  }
+  out.players = [...pMap.values()];
+  out.props = [...prMap.values()].map((p, i) => ({ ...p, id: "p" + i, line: p.line === undefined ? 0.5 : p.line }));
+  return out;
+}
+
+function contextPrompt(d) {
+  const players = [...new Set(d.props.filter(p => p.player).map(p => p.player))];
+  const roster = players.map(n => { const p = d.players.find(x => normName(x.name) === normName(n)); return { name: n, team: p?.team || d.props.find(x => x.player === n)?.team, position: p?.position, stats_so_far: p?.stats || {} }; });
+  const markets = {}; d.props.filter(p => p.player).forEach(p => { (markets[p.player] = markets[p.player] || new Set()).add(p.market_key); });
+  const others = d.props.filter(p => p.market_key === "other").map(p => ({ id: p.id, player: p.player, team: p.team, market: p.market, side: p.side, line: p.line, odds: p.odds }));
+  return `You are an NFL analyst. A live game: ${JSON.stringify(d.game)}.
+Players with props, their stats so far, and the markets offered:
+${JSON.stringify(roster.map(r => ({ ...r, markets: [...(markets[r.name] || [])] })))}
+${others.length ? "Unusual markets to estimate directly:\n" + JSON.stringify(others) : ""}
+
+Using everything you know (this season's per-game averages through your latest knowledge, role and snap share, the opponent's defense against that stat, injuries, weather and venue, coaching tendencies), reply with only this JSON:
+{"game":{"pregame_spread_home":-3.5,"pregame_total":47.5,"weather":"short text or empty","pass_env_mult":1.0},
+ "players":[{"name":"exact name from the list","per_game":{"<stat>":number},"defense_mult":{"<stat>":number},"availability":1.0,"note":"one short sentence, only if it matters"}],
+ "other":[{"id":"p12","p":0.55,"why":"one short sentence"}]}
+
+Stat keys for per_game: pass_att, pass_cmp, pass_yds, pass_td, int, rush_att, rush_yds, rush_td, targets, rec, rec_yds, rec_td, tackles, sacks, fg_made, xp_made. For each player give per-game averages for every stat behind their markets (Rush + Rec Yds needs rush_yds and rec_yds; Anytime TD needs rush_td and rec_td; Longest Reception needs rec and rec_yds; yardage markets also need the matching touch stat: pass_cmp, rush_att or rec).
+defense_mult: multiplier for this opponent vs league average on that stat (0.85 = tough, 1.15 = soft); omit if neutral.
+availability: probability the player finishes the game (lower for an in-game injury or questionable tag).
+pass_env_mult: wind/rain effect on passing yards (1.0 dome or calm, ~0.92 for 20+ mph wind).
+Use null for pregame lines you don't know. Estimates are fine; be calibrated, not optimistic.`;
+}
+
+function setStep(name, cls, text) {
+  const li = $(`#steps li[data-s="${name}"]`); if (!li) return;
+  li.className = cls || ""; if (text) li.textContent = text;
+}
+function showErr(msg) { const e = $("#err"); e.textContent = msg; e.hidden = !msg; }
+function errText(e) {
+  const c = e?.code;
+  if (c === "not_granted" || c === "sampling_disabled" || c === "capability_disabled") return "This page needs permission to use Claude to read the recording. Allow it from the prompt or the artifact's Permissions menu, then try again.";
+  if (c === "images_unavailable") return "Image reading isn't available in this view. Open the page in the Claude app or on claude.ai.";
+  if (c === "rate_limited") return "Claude is rate limited right now. Wait a minute, then upload again.";
+  if (c === "image_rejected") return "One of the frames was rejected. Try a shorter recording or screenshots.";
+  if (c === "invalid_json") return "Claude's answer couldn't be read. Upload again; a slower scroll through the board helps.";
+  if (c === "cancelled") return "";
+  return "Something went wrong" + (e?.message ? ": " + e.message : "") + ". Try again.";
+}
+
+async function run(files) {
+  showErr(""); $("#steps").hidden = false;
+  ["frames", "read", "research", "calc"].forEach(s => setStep(s, ""));
+  $("#pickBtn").setAttribute("aria-disabled", "true"); $("#file").disabled = true; $("#stopBtn").hidden = false;
+  ctl = new AbortController();
+  try {
+    if (!sample) throw { code: "not_granted" };
+    const lim = await sample.limits().catch(() => null);
+    if (!lim?.images) throw { code: "images_unavailable" };
+    const perCall = Math.max(1, Math.min(lim.images.maxCount || 5, 8));
+    // 1. frames
+    setStep("frames", "on");
+    let frames = [];
+    for (const f of files) {
+      if (f.type.startsWith("video/") || /\.(mov|mp4|m4v|webm)$/i.test(f.name)) {
+        frames = frames.concat(await framesFromVideo(f, (x, n) => setStep("frames", "on", `Pulling frames from the recording · ${Math.round(x * 100)}% · ${n} unique screens`)));
+      } else if (f.type.startsWith("image/")) frames = frames.concat(await framesFromImage(f));
+      if (ctl.signal.aborted) throw { code: "cancelled" };
+    }
+    if (!frames.length) throw { message: "no frames could be read from that file" };
+    frames = pickEven(frames, perCall * 5);
+    setStep("frames", "done", `Pulled ${frames.length} unique screens`);
+    // 2. read
+    const batches = []; for (let i = 0; i < frames.length; i += perCall) batches.push(frames.slice(i, i + perCall));
+    const parts = [];
+    for (let i = 0; i < batches.length; i++) {
+      setStep("read", "on", `Reading the stats and props · part ${i + 1} of ${batches.length}`);
+      parts.push(await sample.json(EXTRACT_PROMPT(i + 1, batches[i].length), { images: batches[i].map(f => f.blob), modelTier: "default", signal: ctl.signal }));
+    }
+    const data = mergeBatches(parts);
+    if (!data.props.length) throw { message: "no props were visible in the recording. Make sure the prop board is on screen for a second or two" };
+    setStep("read", "done", `Read ${data.players.length} players and ${data.props.length} props`);
+    // 3. research
+    setStep("research", "on");
+    try {
+      data.context = await sample.json(contextPrompt(data), { modelTier: "complex", signal: ctl.signal });
+      setStep("research", "done");
+    } catch (e) {
+      if (e?.code === "cancelled") throw e;
+      data.context = {}; setStep("research", "fail", "Couldn't load season averages; using position defaults");
+    }
+    // 4. calc
+    setStep("calc", "on"); await new Promise(r => setTimeout(r, 30));
+    const result = analyzeAll(data);
+    setStep("calc", "done", `Ranked ${result.live.length} props`);
+    render(data, result);
+    $("#head").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  } catch (e) {
+    const on = $("#steps li.on"); if (on) on.className = "fail";
+    showErr(errText(e));
+  } finally {
+    $("#pickBtn").removeAttribute("aria-disabled"); $("#file").disabled = false; $("#stopBtn").hidden = true; $("#file").value = "";
+  }
+}
+
+$("#file").addEventListener("change", e => { const fs = [...e.target.files]; if (!fs.length) return; $("#fileName").textContent = fs.map(f => f.name).join(", "); run(fs); });
+$("#stopBtn").addEventListener("click", () => ctl?.abort());
+const drop = $("#drop");
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); const fs = [...e.dataTransfer.files]; if (fs.length && !$("#file").disabled) { $("#fileName").textContent = fs.map(f => f.name).join(", "); run(fs); } });
+
+// example board on load, so the page shows what it does
+const example = JSON.parse($("#example-data").textContent);
+render(example, analyzeAll(example));
+
+(async () => {
+  try { sample = await window.claude?.use?.("sample"); } catch { sample = null; }
+  if (!sample) { $("#hint").textContent = "Reading a recording needs Claude. Open this page on claude.ai or in the Claude app."; }
+})();
+</script>
