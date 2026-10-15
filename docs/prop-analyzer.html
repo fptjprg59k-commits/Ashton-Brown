@@ -410,6 +410,7 @@ function evaluateProp(ctx, prop, N, cache) {
     const [a, b] = ctx.abbrs;
     const scoreNow = x => scope === "full_game" ? ctx.teams[x].score : 0;
     const team = String(prop.team || "").toUpperCase();
+    if (key !== "game_total" && !ctx.teams[team]) return null;
     const me = ctx.teams[team] ? team : a, op = me === a ? b : a;
     let hit = 0, push = 0;
     const vals = new Float64Array(N);
@@ -549,7 +550,35 @@ function firstHalfResult(ctx, r) {
   return { value: v, hit: under ? v < r.line : v > r.line, label: String(v) };
 }
 
+// Map whatever the book printed ("Ravens", "Baltimore Ravens", "BAL") to the game's abbreviation.
+function resolveTeam(data, ...texts) {
+  const g = data.game || {};
+  const sides = [g.home, g.away].filter(Boolean).map(t => ({ abbr: String(t.abbr || "").toUpperCase(), keys: [t.abbr, t.name, t.city, t.full_name].filter(Boolean).map(normName).filter(k => k.length >= 2) }));
+  for (const raw of texts) {
+    if (!raw) continue;
+    const up = String(raw).toUpperCase().trim(), n = normName(raw);
+    const exact = sides.find(t => t.abbr === up);
+    if (exact) return exact.abbr;
+    const hit = sides.find(t => t.keys.some(k => k.length >= 3 ? n.includes(k) || k.includes(n) && n.length >= 3 : n === k));
+    if (hit) return hit.abbr;
+  }
+  return null;
+}
+const TEAM_MARKETS = ["game_total", "team_total", "spread", "moneyline"];
+function normalizeProps(data) {
+  for (const p of data.props || []) {
+    if (TEAM_MARKETS.includes(p.market_key) && p.market_key !== "game_total") {
+      const t = resolveTeam(data, p.team, p.player, p.market);
+      if (t) { p.team = t; if (p.player && resolveTeam(data, p.player)) p.player = null; }
+    } else if (p.team) {
+      p.team = resolveTeam(data, p.team) || p.team;
+    }
+  }
+  for (const pl of data.players || []) if (pl.team) pl.team = resolveTeam(data, pl.team) || pl.team;
+}
+
 function analyzeAll(data, N = 20000) {
+  normalizeProps(data);
   const ctx = buildContext(data), pre = buildContext(pregameData(data));
   pre.priorByName = ctx.priorByName;
   const cache = {}, preCache = {};
@@ -637,17 +666,20 @@ const KEYS = Object.keys(MARKETS).join(", ");
 let sample = null, ctl = null;
 
 function oddsText(o) { o = Number(o); return isFinite(o) && o !== 0 ? (o > 0 ? "+" + o : String(o)) : ""; }
+let teamNames = {};
+function teamLabel(abbr) { if (!abbr) return ""; const n = teamNames[String(abbr).toUpperCase()]; return n ? `${n} (${String(abbr).toUpperCase()})` : String(abbr); }
 function propTitle(r) {
   const p = r.prop, side = r.side;
   const mk = MARKETS[r.key] || p.market || "";
   const scope = r.scope === "second_half" ? " (2H)" : r.scope === "first_half" ? " (1H)" : "";
   if (r.key === "anytime_td") return { who: p.player, what: `${side === "no" ? "No" : ""} Anytime TD${scope}`.trim() };
-  if (r.key === "moneyline") return { who: p.team || "", what: "Moneyline" + scope };
-  if (r.key === "spread") return { who: p.team || "", what: `Spread ${r.line > 0 ? "+" : ""}${r.line}${scope}` };
+  const teamName = teamLabel(p.team) || p.player || p.market || "Team";
+  if (r.key === "moneyline") return { who: teamName, what: "Moneyline" + scope };
+  if (r.key === "spread") return { who: teamName, what: `Spread ${r.line > 0 ? "+" : ""}${r.line}${scope}` };
   if (r.key === "game_total") return { who: "Game total", what: `${side === "under" ? "Under" : "Over"} ${r.line}${scope}` };
-  if (r.key === "team_total") return { who: `${p.team || ""} team total`, what: `${side === "under" ? "Under" : "Over"} ${r.line}${scope}` };
+  if (r.key === "team_total") return { who: `${teamName} team total`, what: `${side === "under" ? "Under" : "Over"} ${r.line}${scope}` };
   const sd = side === "under" ? "Under" : side === "no" ? "No" : side === "yes" ? "Yes" : "Over";
-  return { who: p.player || p.team || "", what: `${sd} ${isFinite(r.line) ? r.line : ""} ${mk || p.market}${scope}`.replace(/\s+/g, " ").trim() };
+  return { who: p.player || teamLabel(p.team) || p.market || "Unnamed prop", what: `${sd} ${isFinite(r.line) ? r.line : ""} ${mk || p.market}${scope}`.replace(/\s+/g, " ").trim() };
 }
 function projText(pr) {
   if (!pr || !isFinite(pr.value)) return "";
@@ -673,6 +705,7 @@ function tone(p) { return p >= 0.7 ? "hi" : p >= 0.5 ? "mid" : "lo"; }
 
 function render(data, result) {
   const g = data.game || {}, h = g.home || {}, a = g.away || {};
+  teamNames = {}; for (const t of [h, a]) if (t.abbr && t.name) teamNames[String(t.abbr).toUpperCase()] = t.name;
   const st = /half/i.test(g.status || "") ? "Halftime" : g.status || (g.quarter ? `Q${g.quarter}` : "");
   const c = result.ctx;
   $("#head").innerHTML = `
@@ -747,7 +780,7 @@ The board may mix pregame/1st-half lines with live or 2nd-half lines; capture al
  "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"scope":"full_game|first_half|second_half"}]}
 
 Rules:
-- Use the same team abbreviations in players, props and game. Unknown field: null (or omit the stat).
+- Use the same team abbreviations in players, props and game. Every spread, moneyline and team-total prop MUST have "team" set to that team's abbreviation (never null, never the full name); player is null for those. Unknown field: null (or omit the stat).
 - Include only stats you can actually read; never guess numbers.
 - One entry per side: if Over and Under are both shown, emit two entries, each with its own odds and the other side's odds as opposing_odds.
 - American odds as signed integers. If decimal odds are shown, convert to American.
