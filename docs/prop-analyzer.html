@@ -165,6 +165,7 @@ h2 { font: 700 1.3rem/1.1 var(--display); text-transform: uppercase; letter-spac
       <li data-s="calc">Simulating the game</li>
     </ol>
     <div class="err" id="err" hidden></div>
+    <button class="btn" id="retryBtn" type="button" hidden>Retry the parts that failed</button>
     <details class="box" id="diag" hidden>
       <summary>Report for troubleshooting</summary>
       <pre id="diagText"></pre>
@@ -310,8 +311,28 @@ function buildContext(data) {
   teams[abbrs[0]].ppg = T / 2 - S / 2; teams[abbrs[1]].ppg = T / 2 + S / 2;
   const priorByName = {};
   for (const p of ctx.players || []) priorByName[normName(p.name)] = p;
+  // When research is missing, the book's own line (scaled to a full game) and the last-5 numbers are the
+  // best baseline available, and the markets offered say what position a player is.
+  const SCOPE_X = { full_game: 1, first_half: 2, second_half: 2, first_quarter: 4 };
+  const linePrior = {}, posGuess = {}, mk = {};
+  for (const p of data.props || []) {
+    if (!p.player) continue;
+    const n = normName(p.player), x = SCOPE_X[scopeOf(p)] || 1;
+    (mk[n] = mk[n] || new Set()).add(p.market_key);
+    if (!STAT[p.market_key] || !isFinite(Number(p.line))) continue;
+    const l5 = (Array.isArray(p.last5) ? p.last5 : []).map(Number).filter(isFinite);
+    const est = l5.length >= 3 ? (2 * Number(p.line) + l5.reduce((a, b) => a + b, 0) / l5.length) / 3 : Number(p.line);
+    const slot = ((linePrior[n] = linePrior[n] || {})[p.market_key] = linePrior[n][p.market_key] || []);
+    slot.push(est * x);
+  }
+  for (const n in linePrior) for (const k in linePrior[n]) { const a = linePrior[n][k]; linePrior[n][k] = a.reduce((s, v) => s + v, 0) / a.length; }
+  for (const n in mk) {
+    const m = mk[n], has = re => [...m].some(k => re.test(k));
+    posGuess[n] = has(/^pass_|^int$/) ? "QB" : has(/^fg_|kick/) ? "K" : has(/tackle|sack/) ? "DEF"
+      : has(/^rush_/) && !has(/^rec|targets|longest_rec/) ? "RB" : has(/^rush_/) ? "RB" : "WR";
+  }
   const num = (x, d, a, b) => { const v = Number(x); return isFinite(v) && x !== null ? clamp(v, a, b) : d; };
-  const out = { data, elapsed, remaining, teams, abbrs, spread, total, priorByName, weather: cg.weather || "",
+  const out = { data, elapsed, remaining, teams, abbrs, spread, total, priorByName, linePrior, posGuess, weather: cg.weather || "",
     passEnv: num(cg.pass_env_mult, 1, 0.8, 1.05), bigPlayEnv: num(cg.big_play_env, 1, 0.75, 1.1), kickEnv: num(cg.kick_env, 1, 0.75, 1.05),
     refMult: num(cg.ref_mult, 1, 0.95, 1.05), pace: {} };
   out.pace[abbrs[0]] = num(cg.pace_mult_home, 1, 0.88, 1.12); out.pace[abbrs[1]] = num(cg.pace_mult_away, 1, 0.88, 1.12);
@@ -343,7 +364,7 @@ function leadFor(ctx, abbr) {
 
 // Expected remaining amount of one counted stat for one player, plus the reasons.
 function remainingMean(ctx, player, key, scope, form = 1) {
-  const pos = String(player.position || "").toUpperCase().replace(/[^A-Z]/g, "");
+  const pos = String(player.position || ctx.posGuess?.[normName(player.name)] || "").toUpperCase().replace(/[^A-Z]/g, "");
   const posKey = FALLBACK[pos] ? pos : /LB|DE|DT|CB|S|DL|DB/.test(pos) ? "DEF" : "WR";
   const pri = ctx.priorByName[normName(player.name)] || {};
   const perGame = pri.per_game || {};
@@ -356,6 +377,7 @@ function remainingMean(ctx, player, key, scope, form = 1) {
     const spec = STAT[key];
     if (spec && spec.yards && isFinite(Number(perGame[spec.touch]))) { prior = Number(perGame[spec.touch]) * spec.ypt; priorSource = "derived"; }
     else if (!spec?.yards && STAT[key] && key === "pass_cmp" && isFinite(Number(perGame.pass_att))) { prior = Number(perGame.pass_att) * 0.65; priorSource = "derived"; }
+    else if (isFinite(ctx.linePrior?.[normName(player.name)]?.[key])) { prior = ctx.linePrior[normName(player.name)][key]; priorSource = "line"; }
     else { prior = FALLBACK[posKey][key] ?? 0; priorSource = "fallback"; }
   }
   const spec = STAT[key] || { k: 6, flow: "none" };
@@ -414,7 +436,7 @@ function simStat(ctx, player, key, scope, N, cache, form = 1) {
   const spec = STAT[key] || { k: 6 };
   const leaveP = 1 - m.avail;
   if (spec.yards) {
-    const pri = ctx.priorByName[normName(player.name)] || {}; const pg = pri.per_game || {};
+    const pri = ctx.priorByName[normName(player.name)] || {}; const pg = { ...(ctx.linePrior?.[normName(player.name)] || {}), ...(pri.per_game || {}) };
     let ypt = spec.ypt;
     if (isFinite(Number(pg[key])) && Number(pg[spec.touch]) > 0.5) ypt = clamp(Number(pg[key]) / Number(pg[spec.touch]), spec.ypt * 0.4, spec.ypt * 2);
     // playing hurt costs yards per touch, not touches; big-play reliance and weather set the per-touch spread
@@ -622,8 +644,9 @@ function evaluateProp(ctx, prop, N, cache) {
     : `Has ${fmt(cur, cur % 1 ? 1 : 0)}, needs ${fmt(Math.max(0, Math.floor(line - cur) + 1))} more; projects ${fmt(remMean, remMean < 10 ? 1 : 0)} more in ${fmt(sims[0].m.r)} min`);
   if (rf.text) res.reasons.push(rf.text);
   addPlayerReasons(res, sims[0].m, pri, comps[0][0]);
-  const lowInfo = sims.every(s => s.m.priorSource === "fallback");
-  if (lowInfo) res.reasons.push("No season average found, so a position default was used");
+  const lowInfo = sims.every(s => s.m.priorSource === "fallback" || s.m.priorSource === "line");
+  if (sims.some(s => s.m.priorSource === "line")) res.reasons.push("No season average available, so the book's line and last-5 games set the baseline");
+  else if (lowInfo) res.reasons.push("No season average found, so a position default was used");
   return finish(hit / N, lowInfo);
 }
 
@@ -1055,12 +1078,12 @@ function mergeBatches(parts) {
   return out;
 }
 
-function contextPrompt(d) {
-  const players = [...new Set(d.props.filter(p => p.player).map(p => p.player))];
+function contextPrompt(d, only, withOthers = true) {
+  const players = only || [...new Set(d.props.filter(p => p.player).map(p => p.player))];
   const roster = players.map(n => { const p = d.players.find(x => normName(x.name) === normName(n)); return { name: n, team: p?.team || d.props.find(x => x.player === n)?.team, position: p?.position, stats_so_far: p?.stats || {} }; });
   const markets = {}; d.props.filter(p => p.player).forEach(p => { (markets[p.player] = markets[p.player] || new Set()).add(p.market_key); });
   const recent = {}; d.props.filter(p => p.player && Array.isArray(p.last5)).forEach(p => { ((recent[p.player] = recent[p.player] || {})[p.market_key + (p.scope === "first_half" ? "_1h" : "")] = p.last5); });
-  const others = d.props.filter(p => p.market_key === "other").map(p => ({ id: p.id, player: p.player, team: p.team, market: p.market, side: p.side, line: p.line, odds: p.odds }));
+  const others = (withOthers ? d.props : []).filter(p => p.market_key === "other").map(p => ({ id: p.id, player: p.player, team: p.team, market: p.market, side: p.side, line: p.line, odds: p.odds }));
   return `You are an NFL analyst. A live game: ${JSON.stringify(d.game)}.
 Players with props, their stats so far, and the markets offered:
 ${JSON.stringify(roster.map(r => ({ ...r, markets: [...(markets[r.name] || [])], last5_from_book: recent[r.name] || undefined })))}
@@ -1143,7 +1166,96 @@ $("#diagCopy").addEventListener("click", async () => {
   setTimeout(() => { $("#diagCopy").textContent = "Copy report"; }, 2500);
 });
 
+let job = null;
+// Read the given slices two at a time; failures are remembered so "Retry" can redo just those.
+async function readSlices(idx) {
+  const todo = [...idx]; let done = 0;
+  job.failedSlices = job.failedSlices.filter(i => !idx.includes(i));
+  setStep("read", "on", `Reading the stats and props · 0 of ${todo.length}`);
+  const worker = async () => {
+    while (todo.length && !ctl.signal.aborted) {
+      const i = todo.shift();
+      try { job.parts[i] = await readSlice(job.batches[i], i); }
+      catch (e) { if (e?.code === "cancelled" || e?.code === "not_granted") throw e; job.failedSlices.push(i); job.lastErr = e; }
+      setStep("read", "on", `Reading the stats and props · ${++done} of ${idx.length}`);
+    }
+  };
+  await Promise.all([worker(), worker()]);
+  if (ctl.signal.aborted) throw { code: "cancelled" };
+}
+
+// Season averages etc., six players per request so one failure can't sink the whole board.
+async function research(data, names) {
+  const chunks = []; for (let i = 0; i < names.length; i += 6) chunks.push(names.slice(i, i + 6));
+  if (!chunks.length) chunks.push([]);
+  let done = 0;
+  setStep("research", "on", `Checking season averages, matchups and injuries · 0 of ${chunks.length}`);
+  const todo = chunks.map((c, i) => [c, i]);
+  const worker = async () => {
+    while (todo.length && !ctl.signal.aborted) {
+      const [c, i] = todo.shift();
+      const key = c.join("|");
+      try { job.research[key] = await sample.json(contextPrompt(data, c, i === 0), { modelTier: "complex", signal: ctl.signal }); job.researchFailed = job.researchFailed.filter(n => !c.includes(n)); }
+      catch (e) { if (e?.code === "cancelled") throw e; for (const n of c) if (!job.researchFailed.includes(n)) job.researchFailed.push(n); job.researchErr = e?.code || e?.message; }
+      setStep("research", "on", `Checking season averages, matchups and injuries · ${++done} of ${chunks.length}`);
+    }
+  };
+  await Promise.all([worker(), worker()]);
+}
+
+async function finishJob(retry = false) {
+  // fill "continued" props with the player from the slice before
+  const parts = job.parts.map(p => p && JSON.parse(JSON.stringify(p)));
+  let header = null;
+  for (const part of parts) {
+    if (!part) continue;
+    for (const p of part.props || []) if (p && p.player === "^") p.player = header;
+    for (const p of part.props || []) if (p && p.player && p.player !== "^") header = p.player;
+    if (typeof part.last_player_header === "string" && part.last_player_header.trim()) header = part.last_player_header.trim();
+  }
+  if (parts.every(p => !p)) throw job.lastErr || { message: "none of the recording could be read" };
+  const data = mergeBatches(parts.filter(Boolean));
+  if (!data.props.length) throw { message: "no props were visible in the recording. Make sure the prop board is on screen for a second or two" };
+  const propPlayers = [...new Set(data.props.map(p => p.player).filter(Boolean))];
+  const nf = job.failedSlices.length;
+  setStep("read", nf ? "fail" : "done", `Read ${data.props.length} props for ${propPlayers.length} players${nf ? ` · ${nf} of ${job.batches.length} parts failed` : ""}`);
+  // research: everyone not yet researched (or only the failed ones on a retry)
+  const have = new Set(Object.values(job.research).flatMap(r => (r?.players || []).map(p => normName(p.name))));
+  const need = propPlayers.filter(n => !have.has(normName(n)));
+  if (need.length || !Object.keys(job.research).length) await research(data, need);
+  const rs = Object.values(job.research).filter(Boolean);
+  data.context = { game: Object.assign({}, ...rs.map(r => r.game || {}).reverse()), players: rs.flatMap(r => r.players || []), other: rs.flatMap(r => r.other || []) };
+  const nr = job.researchFailed.length;
+  setStep("research", nr ? "fail" : "done", nr ? `Season averages missing for ${nr} of ${propPlayers.length} players (book lines used instead)` : `Checked ${propPlayers.length} players`);
+  diag.research = nr ? `missing ${nr}/${propPlayers.length}: ${job.researchErr}` : `ok, ${data.context.players.length} players`;
+  // calc
+  setStep("calc", "on"); await new Promise(r => setTimeout(r, 30));
+  lastData = data;
+  const result = analyzeAll(data);
+  setStep("calc", "done", `Ranked ${result.pregame.length + result.live.length} props`);
+  render(data, result);
+  diag.result = `${result.pregame.length} pregame, ${result.live.length} halftime, ${result.settled.length} decided, ${(result.unnamed || []).length} unnamed`;
+  showDiag(false);
+  const rb = $("#retryBtn"), left = job.failedSlices.length + (job.researchFailed.length ? 1 : 0);
+  rb.hidden = !left; rb.textContent = `Retry the parts that failed (${job.failedSlices.length + job.researchFailed.length})`;
+  if (!retry) $("#head").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+
+async function retryFailed() {
+  if (!job || !sample) return;
+  showErr(""); $("#retryBtn").disabled = true; $("#stopBtn").hidden = false; ctl = new AbortController();
+  try {
+    if (job.failedSlices.length) await readSlices([...job.failedSlices]);
+    // drop failed research so those players are asked again
+    await finishJob(true);
+  } catch (e) {
+    const on = $("#steps li.on"); if (on) on.className = "fail";
+    showErr(errText(e)); diag.error = (e?.code || "") + " " + (e?.message || ""); showDiag(true);
+  } finally { $("#retryBtn").disabled = false; $("#stopBtn").hidden = true; }
+}
+
 async function run(files) {
+  $("#retryBtn").hidden = true;
   diag = { files: files.map(f => `${f.name} (${f.type || "?"}, ${(f.size / 1048576).toFixed(1)} MB)`), slices: [] };
   showErr(""); $("#steps").hidden = false;
   ["frames", "read", "research", "calc"].forEach(s => setStep(s, ""));
@@ -1165,55 +1277,15 @@ async function run(files) {
       if (ctl.signal.aborted) throw { code: "cancelled" };
     }
     if (!frames.length) throw { message: "no frames could be read from that file" };
-    const MAX_BATCHES = 20, pulled = frames.length;
+    const MAX_BATCHES = 32, pulled = frames.length;
     frames = pickEven(frames, perCall * MAX_BATCHES);
     diag.pulled = pulled; diag.sent = frames.length;
     setStep("frames", "done", pulled > frames.length ? `Pulled ${pulled} unique screens; reading ${frames.length} spread across the recording` : `Pulled ${frames.length} unique screens`);
     // 2. read
     const batches = []; for (let i = 0; i < frames.length; i += perCall) batches.push(frames.slice(i, i + perCall));
-    // read slices two at a time; a slice that starts mid-list gets its player from the slice before it
-    const parts = new Array(batches.length); let next = 0, done = 0, failed = 0, firstErr = null;
-    setStep("read", "on", `Reading the stats and props · 0 of ${batches.length}`);
-    const worker = async () => {
-      while (next < batches.length && !ctl.signal.aborted) {
-        const i = next++;
-        try { parts[i] = await readSlice(batches[i], i); }
-        catch (e) { if (e?.code === "cancelled" || e?.code === "not_granted" || e?.code === "rate_limited") throw e; failed++; firstErr = firstErr || e; }
-        setStep("read", "on", `Reading the stats and props · ${++done} of ${batches.length}`);
-      }
-    };
-    await Promise.all([worker(), worker()]);
-    if (failed === batches.length) throw firstErr;
-    let header = null;
-    for (const part of parts) {
-      if (!part) continue;
-      for (const p of part.props || []) if (p && p.player === "^") p.player = header;
-      for (const p of part.props || []) if (p && p.player && p.player !== "^") header = p.player;
-      if (typeof part.last_player_header === "string" && part.last_player_header.trim()) header = part.last_player_header.trim();
-    }
-    const data = mergeBatches(parts.filter(Boolean));
-    if (!data.props.length) throw { message: "no props were visible in the recording. Make sure the prop board is on screen for a second or two" };
-    const propPlayers = new Set(data.props.map(p => p.player).filter(Boolean)).size;
-    setStep("read", "done", `Read ${data.props.length} props for ${propPlayers} players${failed ? ` (${failed} of ${batches.length} slices couldn't be read)` : ""}`);
-    // 3. research
-    setStep("research", "on");
-    try {
-      data.context = await sample.json(contextPrompt(data), { modelTier: "complex", signal: ctl.signal });
-      setStep("research", "done"); diag.research = `ok, ${(data.context?.players || []).length} players`;
-    } catch (e) {
-      if (e?.code === "cancelled") throw e;
-      diag.research = "failed: " + (e?.code || e?.message);
-      data.context = {}; setStep("research", "fail", "Couldn't load season averages; using position defaults");
-    }
-    // 4. calc
-    setStep("calc", "on"); await new Promise(r => setTimeout(r, 30));
-    lastData = data;
-    const result = analyzeAll(data);
-    setStep("calc", "done", `Ranked ${result.pregame.length + result.live.length} props`);
-    render(data, result);
-    diag.result = `${result.pregame.length} pregame, ${result.live.length} halftime, ${result.settled.length} decided, ${(result.unnamed || []).length} unnamed`;
-    showDiag(false);
-    $("#head").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    job = { batches, parts: new Array(batches.length), failedSlices: [], research: {}, researchFailed: [] };
+    await readSlices(batches.map((_, i) => i));
+    await finishJob();
   } catch (e) {
     const on = $("#steps li.on"); if (on) on.className = "fail";
     diag.step = on?.textContent || "?"; diag.error = (e?.code || "") + " " + (e?.message || "");
@@ -1227,6 +1299,7 @@ async function run(files) {
 
 $("#file").addEventListener("change", e => { const fs = [...e.target.files]; if (!fs.length) return; $("#fileName").textContent = fs.map(f => f.name).join(", "); run(fs); });
 $("#stopBtn").addEventListener("click", () => ctl?.abort());
+$("#retryBtn").addEventListener("click", retryFailed);
 const drop = $("#drop");
 drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
 drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
