@@ -159,6 +159,17 @@ likely.
    markets work too. The result is then blended with the book's no-vig price,
    weighted 65% model and 35% market.
 
+**Defense rankings.** The page ships with a table of yards allowed by each
+team, split into pass and run. Every player prop is adjusted by the opposing
+defense: pass yards and receiving yards by pass yards allowed, completions,
+receptions and targets by the square root of that adjustment, and rushing
+yards by run yards allowed. Each team's figure is compared with the league
+average and pulled halfway back toward it, then capped at ±18%. When the
+recording has no pregame total, total yards allowed also adjusts each team's
+expected scoring. Paste an updated list into the "Defense rankings" box at
+the bottom of the page and the board recalculates. The new list is kept in
+that browser.
+
 Results come in two sections, each ranked from most to least likely:
 
 - **Pregame** lists the 1st-half lines, judged as of kickoff from season

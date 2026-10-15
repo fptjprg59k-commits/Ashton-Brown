@@ -132,6 +132,9 @@ header p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
 .res.no { background: var(--lo-soft); color: var(--lo); }
 details.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
 details.box summary { cursor: pointer; font-weight: 600; }
+#defBox { display: flex; flex-direction: column; gap: 10px; }
+#defBox .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+#defText { width: 100%; margin-top: 8px; font: 500 12px/1.5 var(--mono); color: var(--ink); background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
 .tbl { overflow-x: auto; margin-top: 10px; }
 table { border-collapse: collapse; font: 500 12.5px/1.4 var(--mono); font-variant-numeric: tabular-nums; width: 100%; }
 th, td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -168,6 +171,12 @@ h2 { font: 700 1.3rem/1.1 var(--display); text-transform: uppercase; letter-spac
   <section class="sec" id="liveSec"></section>
   <section id="settled"></section>
   <section id="readout"></section>
+  <details class="box" id="defBox">
+    <summary>Defense rankings · yards allowed</summary>
+    <p class="hint">Used for every player prop: pass defense for passing and receiving, run defense for rushing. Paste an updated list in the same format to refresh it.</p>
+    <textarea id="defText" rows="8" spellcheck="false"></textarea>
+    <div class="row"><button class="btn ghost" id="defSave" type="button">Use this list</button><span class="hint" id="defStatus"></span></div>
+  </details>
 
   <p class="foot">Estimates, not guarantees. Each number blends a 20,000-run simulation of the rest of the game (current pace regressed toward season averages, game script, opponent, injuries, blowout risk) with the book's own price. Bet only what you can afford to lose. Help: 1-800-GAMBLER.</p>
 </div>
@@ -206,6 +215,44 @@ const FALLBACK = {
   K: { fg_made: 1.7, xp_made: 2.3 },
   DEF: { tackles: 5, sacks: 0.3 },
 };
+
+// Defense: yards allowed by team, from the rankings the user pastes in. Mults are vs league average.
+const NFL = { ARI: "cardinals", ATL: "falcons", BAL: "ravens", BUF: "bills", CAR: "panthers", CHI: "bears", CIN: "bengals", CLE: "browns",
+  DAL: "cowboys", DEN: "broncos", DET: "lions", GB: "packers", HOU: "texans", IND: "colts", JAX: "jaguars", KC: "chiefs", LV: "raiders",
+  LAC: "chargers", LAR: "rams", MIA: "dolphins", MIN: "vikings", NE: "patriots", NO: "saints", NYG: "giants", NYJ: "jets", PHI: "eagles",
+  PIT: "steelers", SF: "49ers", SEA: "seahawks", TB: "buccaneers", TEN: "titans", WAS: "commanders",
+  JAC: "jaguars", LA: "rams", WSH: "commanders", KAN: "chiefs", GNB: "packers", NWE: "patriots", NOR: "saints", SFO: "49ers", TAM: "buccaneers", LVR: "raiders", OAK: "raiders" };
+let DEFENSE = {};
+const defKey = x => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+function parseDefense(text) {
+  const out = {};
+  const re = /^\s*\d+\.\s*([A-Za-z0-9 .']+?)\s*(?:\(T-?\d+\))?\s*:\s*([\d,]+)\s*\|\s*Pass\s*(T-?\d+|#\d+)\s*\(([\d,]+)\)\s*\|\s*Run\s*(T-?\d+|#\d+)\s*\(([\d,]+)\)/i;
+  for (const line of String(text || "").split(/\n/)) {
+    const m = line.match(re); if (!m) continue;
+    const num = x => Number(String(x).replace(/,/g, "")), rank = x => x.replace(/^#/, "").replace(/^T-?/, "T-");
+    out[defKey(m[1])] = { name: m[1].trim(), total: num(m[2]), passRank: rank(m[3]), pass: num(m[4]), runRank: rank(m[5]), run: num(m[6]) };
+  }
+  const v = Object.values(out);
+  if (v.length >= 8) {
+    const avgP = v.reduce((a, t) => a + t.pass, 0) / v.length, avgR = v.reduce((a, t) => a + t.run, 0) / v.length, avgT = v.reduce((a, t) => a + t.total, 0) / v.length;
+    // regress halfway to average: a handful of games of yardage is noisy
+    for (const t of v) { t.passMult = clamp(1 + 0.5 * (t.pass / avgP - 1), 0.82, 1.18); t.runMult = clamp(1 + 0.5 * (t.run / avgR - 1), 0.82, 1.18); t.totMult = clamp(1 + 0.35 * (t.total / avgT - 1), 0.88, 1.12); }
+  }
+  return v.length >= 8 ? out : {};
+}
+function setDefense(d) { DEFENSE = d || {}; }
+// The defense a team's offense is facing.
+function opponentDefense(ctx, abbr) {
+  const me = String(abbr || "").toUpperCase(); if (!ctx.teams[me]) return null;
+  const opp = ctx.abbrs.find(a => a !== me);
+  const g = ctx.data.game || {}, side = [g.home, g.away].find(t => t && String(t.abbr || "").toUpperCase() === opp) || {};
+  const keys = [NFL[opp], defKey(side.name), defKey(side.full_name)].filter(Boolean);
+  for (const x of keys) if (DEFENSE[x]) return DEFENSE[x];
+  // "San Francisco 49ers" style names: match on the nickname at the end
+  for (const x of keys) for (const [k, t] of Object.entries(DEFENSE)) if (k.length >= 4 && x.endsWith(k)) return t;
+  return null;
+}
+const PASS_YARD_KEYS = ["pass_yds", "rec_yds"], PASS_COUNT_KEYS = ["pass_cmp", "rec", "targets"], RUN_YARD_KEYS = ["rush_yds"];
 
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function hashStr(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -257,7 +304,10 @@ function buildContext(data) {
   teams[abbrs[0]].ppg = T / 2 - S / 2; teams[abbrs[1]].ppg = T / 2 + S / 2;
   const priorByName = {};
   for (const p of ctx.players || []) priorByName[normName(p.name)] = p;
-  return { data, elapsed, remaining, teams, abbrs, spread, total, priorByName, passEnv: Number(cg.pass_env_mult) || 1, weather: cg.weather || "" };
+  const out = { data, elapsed, remaining, teams, abbrs, spread, total, priorByName, passEnv: Number(cg.pass_env_mult) || 1, weather: cg.weather || "" };
+  // pregame lines already price defenses in; only lean on yards allowed when they're missing
+  if (total === null) for (const a of abbrs) { const od = opponentDefense(out, a); if (od?.totMult) teams[a].ppg *= od.totMult; }
+  return out;
 }
 
 function findPlayer(ctx, name) {
@@ -309,10 +359,16 @@ function remainingMean(ctx, player, key, scope, form = 1) {
   let env = 1;
   if (spec.flow === "pass" && STAT[key]?.yards) env = ctx.passEnv;
   const dm = Number((pri.defense_mult || {})[key]);
-  const def = isFinite(dm) ? clamp(dm, 0.7, 1.3) : 1;
+  let def = isFinite(dm) ? clamp(dm, 0.7, 1.3) : 1, defInfo = null;
+  const od = opponentDefense(ctx, player.team);
+  if (od && od.passMult) {
+    if (PASS_YARD_KEYS.includes(key)) { def = od.passMult; defInfo = { kind: "pass", rank: od.passRank, yds: od.pass, name: od.name }; }
+    else if (PASS_COUNT_KEYS.includes(key)) { def = Math.sqrt(od.passMult); defInfo = { kind: "pass", rank: od.passRank, yds: od.pass, name: od.name }; }
+    else if (RUN_YARD_KEYS.includes(key)) { def = od.runMult; defInfo = { kind: "run", rank: od.runRank, yds: od.run, name: od.name }; }
+  }
   const mean = Math.max(0, rate * r * script * blow * env * def * form);
   const avail = isFinite(Number(pri.availability)) ? clamp(Number(pri.availability), 0, 1) : 1;
-  return { cur, prior, priorSource, pace: pace * 60, w, script, blow, env, def, mean, avail, lead, r, pos: posKey };
+  return { cur, prior, priorSource, pace: pace * 60, w, script, blow, env, def, defInfo, mean, avail, lead, r, pos: posKey };
 }
 
 function simStat(ctx, player, key, scope, N, cache, form = 1) {
@@ -536,7 +592,8 @@ function addPlayerReasons(res, m, pri, key) {
   }
   if (Math.abs(m.script - 1) >= 0.03) res.reasons.push(`Game script (${m.lead > 0 ? "up " + m.lead : m.lead < 0 ? "down " + -m.lead : "tied"}): ${pctText(m.script - 1)} volume`);
   if (m.blow < 0.97) res.reasons.push(`Blowout risk could sit starters late: ${pctText(m.blow - 1)}`);
-  if (Math.abs(m.def - 1) >= 0.03) res.reasons.push(`Opponent matchup: ${pctText(m.def - 1)}`);
+  if (m.defInfo) res.reasons.push(`${m.defInfo.name} ${m.defInfo.kind} D ranks #${m.defInfo.rank} (${m.defInfo.yds.toLocaleString()} yds allowed): ${Math.abs(m.def - 1) < 0.01 ? "about average" : pctText(m.def - 1)}`);
+  else if (Math.abs(m.def - 1) >= 0.03) res.reasons.push(`Opponent matchup: ${pctText(m.def - 1)}`);
   if (Math.abs(m.env - 1) >= 0.03) res.reasons.push(`Weather: ${pctText(m.env - 1)} passing`);
   if (m.avail < 0.97) res.reasons.push(`Health: ${Math.round(m.avail * 100)}% chance to finish the game`);
   if (pri.note) res.reasons.push(pri.note);
@@ -623,7 +680,42 @@ function analyzeAll(data, N = 20000) {
   pregame.sort((a, b) => b.p - a.p);
   return { ctx, live, settled, pregame };
 }
-if (typeof module !== "undefined") module.exports = { analyzeAll, gameClock, implied, marketProb };
+if (typeof module !== "undefined") module.exports = { analyzeAll, gameClock, implied, marketProb, parseDefense, setDefense };
+</script>
+
+<script id="defense-data" type="text/plain">
+1. Chiefs: 1,287 | Pass #3 (916) | Run #3 (371)
+2. Seahawks: 1,336 | Pass #2 (834) | Run #11 (502)
+3. Vikings: 1,410 | Pass T-5 (977) | Run #6 (433)
+4. Rams: 1,467 | Pass #1 (825) | Run #27 (642)
+5. Buccaneers: 1,537 | Pass #19 (1,173) | Run #2 (364)
+6. 49ers: 1,542 | Pass #10 (1,054) | Run #10 (488)
+7. Patriots (T-7): 1,567 | Pass #12 (1,113) | Run #7 (454)
+8. Jets (T-7): 1,567 | Pass T-5 (977) | Run T-19 (590)
+9. Panthers: 1,596 | Pass #4 (970) | Run #23 (626)
+10. Chargers: 1,618 | Pass #8 (1,025) | Run #21 (593)
+11. Bears: 1,623 | Pass T-15 (1,143) | Run #9 (480)
+12. Packers: 1,635 | Pass #7 (997) | Run T-25 (638)
+13. Texans: 1,673 | Pass #26 (1,281) | Run #4 (392)
+14. Dolphins: 1,683 | Pass #13 (1,130) | Run #16 (553)
+15. Steelers: 1,685 | Pass #18 (1,168) | Run #13 (517)
+16. Giants: 1,686 | Pass #9 (1,048) | Run T-25 (638)
+17. Ravens: 1,700 | Pass #20 (1,190) | Run #12 (510)
+18. Jaguars: 1,705 | Pass #30 (1,386) | Run #1 (319)
+19. Falcons: 1,708 | Pass #27 (1,307) | Run #5 (401)
+20. Titans: 1,713 | Pass T-15 (1,143) | Run #17 (570)
+21. Browns: 1,786 | Pass #21 (1,199) | Run #18 (587)
+22. Commanders: 1,821 | Pass #29 (1,344) | Run #8 (477)
+23. Broncos: 1,828 | Pass #11 (1,102) | Run #30 (726)
+24. Eagles: 1,832 | Pass #23 (1,242) | Run T-19 (590)
+25. Bengals: 1,840 | Pass #22 (1,225) | Run #22 (615)
+26. Saints: 1,885 | Pass #14 (1,141) | Run #31 (744)
+27. Cardinals: 1,895 | Pass #24 (1,262) | Run #24 (633)
+28. Raiders: 1,969 | Pass #25 (1,266) | Run #29 (703)
+29. Colts: 1,991 | Pass #28 (1,340) | Run #28 (651)
+30. Cowboys: 2,001 | Pass #17 (1,159) | Run #32 (842)
+31. Bills: 2,020 | Pass #31 (1,479) | Run #15 (541)
+32. Lions: 2,142 | Pass #32 (1,607) | Run #14 (535)
 </script>
 
 <script id="example-data" type="application/json">
@@ -861,7 +953,7 @@ Using everything you know (this season's per-game averages through your latest k
  "other":[{"id":"p12","p":0.55,"why":"one short sentence"}]}
 
 Stat keys for per_game: pass_att, pass_cmp, pass_yds, pass_td, int, rush_att, rush_yds, rush_td, targets, rec, rec_yds, rec_td, tackles, sacks, fg_made, xp_made. For each player give per-game averages for every stat behind their markets (Rush + Rec Yds needs rush_yds and rec_yds; Anytime TD needs rush_td and rec_td; Longest Reception needs rec and rec_yds; yardage markets also need the matching touch stat: pass_cmp, rush_att or rec).
-defense_mult: multiplier for this opponent vs league average on that stat (0.85 = tough, 1.15 = soft); omit if neutral.
+defense_mult: multiplier for this opponent vs league average on that stat (0.85 = tough, 1.15 = soft); omit if neutral. Yards-allowed rankings are applied separately, so use this only for things they miss (TDs, sacks, interceptions, tackles, slot/outside or TE-specific matchups).
 availability: probability the player finishes the game (lower for an in-game injury or questionable tag).
 pass_env_mult: wind/rain effect on passing yards (1.0 dome or calm, ~0.92 for 20+ mph wind).
 Use null for pregame lines you don't know. Estimates are fine; be calibrated, not optimistic.`;
@@ -926,6 +1018,7 @@ async function run(files) {
     }
     // 4. calc
     setStep("calc", "on"); await new Promise(r => setTimeout(r, 30));
+    lastData = data;
     const result = analyzeAll(data);
     setStep("calc", "done", `Ranked ${result.pregame.length + result.live.length} props`);
     render(data, result);
@@ -944,6 +1037,20 @@ const drop = $("#drop");
 drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
 drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
 drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); const fs = [...e.dataTransfer.files]; if (fs.length && !$("#file").disabled) { $("#fileName").textContent = fs.map(f => f.name).join(", "); run(fs); } });
+
+// defense list: the user's last saved copy, else the one shipped with the page
+let defText = $("#defense-data").textContent.trim();
+try { const saved = localStorage.getItem("defenseRankings"); if (saved && Object.keys(parseDefense(saved)).length) defText = saved; } catch {}
+$("#defText").value = defText;
+function applyDefense(text) { const d = parseDefense(text); setDefense(d); $("#defStatus").textContent = Object.keys(d).length ? `Using ${Object.keys(d).length} teams` : "Couldn't read that list; check the format"; return Object.keys(d).length; }
+applyDefense(defText);
+let lastData = null;
+$("#defSave").addEventListener("click", () => {
+  const t = $("#defText").value;
+  if (!applyDefense(t)) return;
+  try { localStorage.setItem("defenseRankings", t); } catch {}
+  const d = lastData || example; render(d, analyzeAll(d));
+});
 
 // example board on load, so the page shows what it does
 const example = JSON.parse($("#example-data").textContent);
