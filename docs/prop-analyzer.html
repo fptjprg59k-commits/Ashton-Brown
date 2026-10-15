@@ -78,7 +78,10 @@ header p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
 .steps li.fail::before { border-color: var(--lo); background: var(--lo); }
 @keyframes pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .steps li.on::before { animation: none; } }
-.err { background: var(--lo-soft); color: var(--ink); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+.lab { font-weight: 600; font-size: 14px; }
+.lab .opt { font-weight: 400; color: var(--muted); }
+#names { width: 100%; font: 500 15px/1.5 var(--body); color: var(--ink); background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; resize: vertical; }
+.err { var(--lo-soft); color: var(--ink); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
 
 .board-head { display: flex; flex-direction: column; gap: 10px; }
 .tag {
@@ -134,14 +137,20 @@ header p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
 .phead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .phead .pname { font-weight: 600; font-size: 16px; }
 .pmeta { color: var(--muted); font-size: 13px; }
+.phead .pmeta { flex: 1 1 auto; min-width: 0; }
 .cbadge { margin-left: auto; font: 600 11px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; border-radius: 6px; padding: 5px 7px; }
 .cbadge.hi { background: var(--hi-soft); color: var(--hi); } .cbadge.mid { background: var(--mid-soft); color: var(--mid); } .cbadge.lo { background: var(--lo-soft); color: var(--lo); }
 .stats { display: flex; flex-direction: column; }
-.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "lab val" "rng conf"; gap: 0 10px; padding: 7px 0; border-top: 1px solid var(--line); }
-.slab { grid-area: lab; color: var(--muted); font-size: 14px; }
+/* one stat per row: name | 1st half | full game | confidence, ranges underneath */
+.shead, .srow { display: grid; grid-template-columns: minmax(0, 1fr) 62px 62px 30px; column-gap: 8px; align-items: baseline; }
+.shead { font: 600 9.5px/1.2 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; }
+.shead span { text-align: right; } .shead span:first-child { text-align: left; }
+.srow { grid-template-areas: "lab h1 val conf" "rng rng rng rng"; row-gap: 3px; padding: 8px 0; border-top: 1px solid var(--line); }
+.slab { grid-area: lab; color: var(--ink); font-size: 14px; }
+.sh1 { grid-area: h1; text-align: right; font: 600 1.15rem/1 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; }
 .sval { grid-area: val; text-align: right; font: 700 1.5rem/1 var(--display); font-variant-numeric: tabular-nums; }
-.srng { grid-area: rng; color: var(--muted); font: 500 12px/1.4 var(--mono); font-variant-numeric: tabular-nums; }
-.sconf { grid-area: conf; justify-self: end; font: 600 11px/1 var(--mono); border-radius: 5px; padding: 3px 6px; }
+.srng { grid-area: rng; color: var(--muted); font: 500 11.5px/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+.sconf { grid-area: conf; justify-self: end; align-self: center; font: 600 11px/1 var(--mono); border-radius: 5px; padding: 3px 5px; }
 .sconf.hi { background: var(--hi-soft); color: var(--hi); } .sconf.mid { background: var(--mid-soft); color: var(--mid); } .sconf.lo { background: var(--lo-soft); color: var(--lo); }
 .player .why { margin-top: 0; }
 .player .why ul { gap: 6px; }
@@ -162,45 +171,51 @@ h2 { font: 700 1.3rem/1.1 var(--display); text-transform: uppercase; letter-spac
 <div class="wrap">
   <header>
     <h1>Halftime Prop Analyzer</h1>
-    <p>Upload a screen recording of the box score and the players' prop pages. Every QB, RB, WR and TE gets a projected final stat line, with the most confident projections first.</p>
+    <p>Type the players you want. Each one gets a projected 1st-half and full-game stat line, most confident first. At halftime, add screenshots of the box score and the projections pick up from what has already happened.</p>
   </header>
 
-  <section class="upload" id="drop">
+  <form class="upload" id="form">
+    <label class="lab" for="names">Players</label>
+    <textarea id="names" rows="4" spellcheck="false" placeholder="Bijan Robinson&#10;Drake London vs SF&#10;Brock Purdy"></textarea>
+    <div class="hint">One per line. Add "vs" and the opponent (e.g. "vs SF") to set the matchup yourself. At halftime you can leave this empty to project everyone in the box score.</div>
+
+    <label class="lab" for="shots">Halftime box score <span class="opt">(optional)</span></label>
     <div class="row">
-      <label class="btn" for="file" id="pickBtn">Choose recording</label>
-      <input id="file" type="file" accept="video/*,image/*" multiple hidden>
-      <button class="btn ghost" id="stopBtn" type="button" hidden>Stop</button>
-      <span id="fileName"></span>
+      <label class="btn ghost" for="shots" id="shotsBtn">Add screenshots</label>
+      <input id="shots" type="file" accept="image/*" multiple hidden>
+      <span id="shotsInfo" class="hint">No screenshots</span>
+      <button class="btn ghost" id="shotsClear" type="button" hidden>Clear</button>
     </div>
-    <div class="hint" id="hint">Scroll slowly through the box score and every prop tab while recording. Screenshots work too. You can pick several files at once.</div>
+
+    <div class="row">
+      <button class="btn" id="goBtn" type="submit">Project</button>
+      <button class="btn ghost" id="stopBtn" type="button" hidden>Stop</button>
+    </div>
+    <div class="hint" id="hint"></div>
     <ol class="steps" id="steps" hidden>
-      <li data-s="frames">Pulling frames from the recording</li>
-      <li data-s="read">Reading the stats and props</li>
+      <li data-s="read">Reading the box score</li>
       <li data-s="research">Checking season averages, matchups and injuries</li>
       <li data-s="calc">Projecting every player</li>
     </ol>
     <div class="err" id="err" hidden></div>
-    <button class="btn" id="retryBtn" type="button" hidden>Retry the parts that failed</button>
     <details class="box" id="diag" hidden>
       <summary>Report for troubleshooting</summary>
       <pre id="diagText"></pre>
       <button class="btn ghost" id="diagCopy" type="button">Copy report</button>
     </details>
-  </section>
+  </form>
 
   <section class="board-head" id="head"></section>
-  <section class="sec" id="preSec"></section>
   <section class="sec" id="liveSec"></section>
-  <section id="settled"></section>
   <section id="readout"></section>
   <details class="box" id="defBox">
     <summary>Defense rankings · yards allowed</summary>
-    <p class="hint">Used for every player prop: pass defense for passing and receiving, run defense for rushing. Paste an updated list in the same format to refresh it.</p>
+    <p class="hint">Used for every projection: pass defense for passing and receiving, run defense for rushing. Paste an updated list in the same format to refresh it.</p>
     <textarea id="defText" rows="8" spellcheck="false"></textarea>
     <div class="row"><button class="btn ghost" id="defSave" type="button">Use this list</button><span class="hint" id="defStatus"></span></div>
   </details>
 
-  <p class="foot">Estimates, not guarantees. Each number blends a 20,000-run simulation of the rest of the game (current pace regressed toward season averages, game script, opponent, injuries, blowout risk) with the book's own price. Bet only what you can afford to lose. Help: 1-800-GAMBLER.</p>
+  <p class="foot">Estimates, not guarantees. Each number comes from a 20,000-run simulation using season averages, the box score so far, game script, pace, the opposing defense, injuries, weather, referees and blowout risk. Projections show the middle outcome; the range covers 8 games in 10. Bet only what you can afford to lose. Help: 1-800-GAMBLER.</p>
 </div>
 
 <script id="model">
@@ -216,13 +231,14 @@ const MARKETS = {
 // how each counted stat behaves: count dispersion k (Infinity = Poisson), touch stat + yards per touch for yardage
 const STAT = {
   // dispersion tuned to NFL game-to-game spread (QB completions sd ~5, WR catches ~2.3, RB carries ~5)
-  pass_att: { k: 40, flow: "pass" }, pass_cmp: { k: 40, flow: "pass" }, rec: { k: 10, flow: "pass" },
-  targets: { k: 10, flow: "pass" }, rush_att: { k: 15, flow: "rush" },
+  // (the per-game adjustment shock below adds its own spread, so counts are close to Poisson)
+  pass_att: { k: 200, flow: "pass" }, pass_cmp: { k: 200, flow: "pass" }, rec: { k: 30, flow: "pass" },
+  targets: { k: 30, flow: "pass" }, rush_att: { k: 25, flow: "rush" },
   pass_td: { k: Infinity, flow: "pass", rare: true }, int: { k: Infinity, flow: "pass", rare: true },
   rush_td: { k: Infinity, flow: "rush", rare: true }, rec_td: { k: Infinity, flow: "pass", rare: true },
   tackles: { k: 5, flow: "none" }, sacks: { k: Infinity, flow: "none", rare: true },
   fg_made: { k: Infinity, flow: "none" }, xp_made: { k: Infinity, flow: "none" },
-  pass_yds: { yards: true, touch: "pass_cmp", ypt: 11.0, cv: 0.95, shift: 0, flow: "pass" },
+  pass_yds: { yards: true, touch: "pass_cmp", ypt: 11.0, cv: 0.8, shift: 0, flow: "pass" },
   rush_yds: { yards: true, touch: "rush_att", ypt: 4.4, cv: 1.5, shift: -3, flow: "rush" },
   rec_yds: { yards: true, touch: "rec", ypt: 11.5, cv: 0.85, shift: 0, flow: "pass" },
 };
@@ -386,7 +402,7 @@ function remainingMean(ctx, player, key, scope, form = 1) {
   const perGame = pri.per_game || {};
   const stats = player.stats || {};
   let cur = Number(stats[key]) || 0;
-  const e = ctx.elapsed, r = scope === "full_game" ? ctx.remaining : Math.min(scope === "first_quarter" ? 15 : 30, ctx.remaining);
+  const e = ctx.elapsed, r = scope === "full_game" ? ctx.remaining : scope === "first_half_rest" ? Math.max(0, 30 - e) : Math.min(scope === "first_quarter" ? 15 : 30, ctx.remaining);
   let prior = Number(perGame[key]);
   let priorSource = "season";
   if (!isFinite(prior)) {
@@ -440,7 +456,7 @@ function remainingMean(ctx, player, key, scope, form = 1) {
 
 // Halftime / in-game adjustments: each simulated game gets its own coordinator shock, so a hot
 // player can get schemed out (or freed up). Mean-preserving; widens the range of outcomes.
-const FLOW_SD = 0.14;
+const FLOW_SD = 0.10;
 function flowShock(r) { return Math.exp(FLOW_SD * normal(r) - FLOW_SD * FLOW_SD / 2); }
 
 function simStat(ctx, player, key, scope, N, cache, form = 1) {
@@ -836,7 +852,82 @@ function projectPlayers(data, N = 20000) {
   return { ctx, players };
 }
 
-if (typeof module !== "undefined") module.exports = { analyzeAll, projectPlayers, gameClock, implied, marketProb, parseDefense, setDefense };
+// ---------- typed roster: each player in his own game context ----------
+function matchByName(list, name, field = "name") {
+  const n = normName(name); if (!n) return null;
+  let hit = list.find(x => normName(x[field]) === n);
+  if (!hit) { const last = n.slice(-6); hit = list.find(x => { const m = normName(x[field]); return m.endsWith(last) && m[0] === n[0]; }); }
+  return hit || null;
+}
+// entries: [{name, opp}] typed by the user; box: {game, players} read from screenshots (or null);
+// research: {players:[...]} from Claude. Returns players with 1st-half and full-game projections.
+function projectRoster(entries, box, research, N = 20000) {
+  const R = research?.players || [], boxPlayers = box?.players || [];
+  const g = box?.game || {};
+  const boxTeams = [g.home?.abbr, g.away?.abbr].filter(Boolean).map(x => String(x).toUpperCase());
+  let list = entries.filter(e => e.name);
+  if (!list.length) list = boxPlayers.map(p => ({ name: p.name }));
+  const out = [], seen = new Set();
+  for (const e of list) {
+    const r = matchByName(R, e.name) || {}, bp = matchByName(boxPlayers, e.name);
+    const name = r.name || bp?.name || e.name;
+    if (seen.has(normName(name))) continue; seen.add(normName(name));
+    let pos = String(bp?.position || r.position || "").toUpperCase().replace(/[^A-Z]/g, "");
+    if (pos === "HB" || pos === "FB") pos = "RB";
+    if (!PROJ_STATS[pos]) { if (!pos && !bp) out.push({ name, missing: true }); continue; }
+    const team = String(bp?.team || r.team || "").toUpperCase() || "TM";
+    const inBox = bp && boxTeams.includes(team);
+    const typed = e.opp && NFL[String(e.opp).toUpperCase()] ? String(e.opp).toUpperCase() : null;
+    let opp = String(typed || (inBox ? boxTeams.find(t => t !== team) : "") || r.opponent || "").toUpperCase() || "OPP";
+    // home/away and scores: from the box score when the player is in it
+    let home = inBox ? String(g.home.abbr).toUpperCase() === team : !!r.home;
+    const scoreOf = abbr => inBox ? Number([g.home, g.away].find(t => String(t.abbr).toUpperCase() === abbr)?.score) || 0 : 0;
+    const side = (abbr, nm) => ({ abbr, name: nm || NFL[abbr] || abbr, score: scoreOf(abbr) });
+    const game = { home: side(home ? team : opp), away: side(home ? opp : team), status: inBox ? (g.status || "Halftime") : "pregame", quarter: inBox ? g.quarter : 0, clock: inBox ? g.clock : "15:00" };
+    const ts = Number(r.team_spread);
+    const cg = {
+      pregame_spread_home: isFinite(ts) && r.team_spread !== null ? (home ? ts : -ts) : null,
+      pregame_total: isFinite(Number(r.game_total)) && r.game_total !== null ? Number(r.game_total) : null,
+      pace_mult_home: home ? r.team_pace : r.opp_pace, pace_mult_away: home ? r.opp_pace : r.team_pace,
+      pass_env_mult: r.pass_env, big_play_env: r.big_play_env, kick_env: r.kick_env, ref_mult: r.ref_mult, weather: r.weather || "",
+    };
+    const pl = { name, team, position: pos, stats: inBox ? { ...(bp.stats || {}) } : {} };
+    const data = { game, players: [pl], props: [], context: { game: cg, players: [{ ...r, name }] } };
+    const ctx = buildContext(data);
+    const pre = buildContext(pregameData(data)); pre.priorByName = ctx.priorByName;
+    const cache = {}, preCache = {}, pri = ctx.priorByName[normName(name)] || {};
+    const live = ctx.elapsed > 0, halfDone = ctx.elapsed >= 30;
+    const rows = [];
+    for (const key of PROJ_STATS[pos]) {
+      const full = simStat(ctx, pl, key, "full_game", N, cache);
+      const cur = full.m.cur, vals = Float64Array.from(full.tot, v => v + cur).sort();
+      const med = pct(vals, 0.5), lo = pct(vals, 0.1), hi = pct(vals, 0.9);
+      let mean = 0; for (const v of vals) mean += v; mean /= vals.length;
+      let h1;
+      if (halfDone) h1 = { value: cur, actual: true };
+      else if (live) {
+        const s1 = simStat(ctx, pl, key, "first_half_rest", N, cache);
+        const v1 = Float64Array.from(s1.tot, v => v + cur).sort(); h1 = { value: pct(v1, 0.5), lo: pct(v1, 0.1), hi: pct(v1, 0.9) };
+      } else {
+        const s1 = simStat(pre, pl, key, "first_half", N, preCache);
+        const v1 = Float64Array.from(s1.tot).sort(); h1 = { value: pct(v1, 0.5), lo: pct(v1, 0.1), hi: pct(v1, 0.9) };
+      }
+      const width = (hi - lo) / Math.max(mean, STAT[key]?.yards ? 15 : 2.5);
+      const quality = { season: 1, derived: 0.92, line: 0.82, fallback: 0.55 }[full.m.priorSource] ?? 0.8;
+      const conf = clamp(100 * Math.exp(-0.5 * width) * quality * (0.6 + 0.4 * full.m.avail), 1, 99);
+      const res = { reasons: [] };
+      addPlayerReasons(res, full.m, pri, key);
+      if (full.m.priorSource === "fallback") res.reasons.unshift("No season average found; a position default was used");
+      rows.push({ key, label: MARKETS[key], cur, med, lo, hi, conf, h1, yards: !!STAT[key]?.yards, reasons: res.reasons });
+    }
+    rows.sort((a, b) => b.conf - a.conf);
+    out.push({ name, team, opp, home, position: pos, rows, conf: rows.reduce((s, r) => s + r.conf, 0) / rows.length, note: pri.note, live, halfDone, score: live ? `${scoreOf(team)}-${scoreOf(opp)}` : null });
+  }
+  out.sort((a, b) => (b.conf || -1) - (a.conf || -1));
+  return out;
+}
+
+if (typeof module !== "undefined") module.exports = { analyzeAll, projectPlayers, projectRoster, gameClock, implied, marketProb, parseDefense, setDefense };
 </script>
 
 <script id="defense-data" type="text/plain">
@@ -876,59 +967,340 @@ if (typeof module !== "undefined") module.exports = { analyzeAll, projectPlayers
 
 <script id="example-data" type="application/json">
 {
-  "example": true,
-  "game": { "home": {"abbr": "BAL", "name": "Ravens", "score": 17}, "away": {"abbr": "CIN", "name": "Bengals", "score": 10}, "status": "Halftime", "quarter": 2, "clock": "0:00" },
+ "example": true,
+ "names": [],
+ "box": {
+  "game": {
+   "home": {
+    "abbr": "BAL",
+    "name": "Ravens",
+    "score": 17
+   },
+   "away": {
+    "abbr": "CIN",
+    "name": "Bengals",
+    "score": 10
+   },
+   "status": "Halftime",
+   "quarter": 2,
+   "clock": "0:00"
+  },
   "players": [
-    {"name": "Lamar Jackson", "team": "BAL", "position": "QB", "stats": {"pass_att": 17, "pass_cmp": 12, "pass_yds": 145, "pass_td": 1, "rush_att": 5, "rush_yds": 31, "longest_rush": 14}},
-    {"name": "Derrick Henry", "team": "BAL", "position": "RB", "stats": {"rush_att": 11, "rush_yds": 68, "rush_td": 1, "longest_rush": 22, "targets": 1, "rec": 1, "rec_yds": 6}},
-    {"name": "Zay Flowers", "team": "BAL", "position": "WR", "stats": {"targets": 6, "rec": 4, "rec_yds": 52, "longest_rec": 21}},
-    {"name": "Rashod Bateman", "team": "BAL", "position": "WR", "stats": {"targets": 4, "rec": 2, "rec_yds": 38, "rec_td": 1, "longest_rec": 29}},
-    {"name": "Mark Andrews", "team": "BAL", "position": "TE", "stats": {"targets": 4, "rec": 3, "rec_yds": 31, "longest_rec": 14}},
-    {"name": "Joe Burrow", "team": "CIN", "position": "QB", "stats": {"pass_att": 21, "pass_cmp": 14, "pass_yds": 168, "pass_td": 1, "rush_att": 2, "rush_yds": 9}},
-    {"name": "Chase Brown", "team": "CIN", "position": "RB", "stats": {"rush_att": 9, "rush_yds": 34, "longest_rush": 11, "targets": 2, "rec": 1, "rec_yds": 6}},
-    {"name": "Ja'Marr Chase", "team": "CIN", "position": "WR", "stats": {"targets": 8, "rec": 6, "rec_yds": 82, "rec_td": 1, "longest_rec": 34}},
-    {"name": "Tee Higgins", "team": "CIN", "position": "WR", "stats": {"targets": 5, "rec": 3, "rec_yds": 41, "longest_rec": 19}}
-  ],
-  "props": [
-    {"player": "Ja'Marr Chase", "team": "CIN", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 121.5, "odds": -105, "opposing_odds": -114, "last5": [131, 88, 145, 102, 76]},
-    {"player": "Ja'Marr Chase", "team": "CIN", "market_key": "rec", "market": "Receptions", "side": "over", "line": 9.5, "odds": 142, "opposing_odds": -171},
-    {"player": "Tee Higgins", "team": "CIN", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 63.5, "odds": 119, "opposing_odds": -143},
-    {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_yds", "market": "Passing Yards", "side": "over", "line": 301.5, "odds": -107, "opposing_odds": -112},
-    {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_td", "market": "Passing TDs", "side": "over", "line": 1.5, "odds": -137, "opposing_odds": 114},
-    {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_yds", "market": "Passing Yards", "side": "over", "line": 244.5, "odds": -1100, "opposing_odds": 679},
-    {"player": "Chase Brown", "team": "CIN", "market_key": "rush_yds", "market": "Rushing Yards", "side": "over", "line": 50.5, "odds": -131, "opposing_odds": 109},
-    {"player": "Chase Brown", "team": "CIN", "market_key": "anytime_td", "market": "Anytime TD", "side": "yes", "line": 0.5, "odds": 518},
-    {"player": "Derrick Henry", "team": "BAL", "market_key": "rush_yds", "market": "Rushing Yards", "side": "over", "line": 140.5, "odds": -123, "opposing_odds": 102},
-    {"player": "Derrick Henry", "team": "BAL", "market_key": "rush_att", "market": "Rushing Attempts", "side": "over", "line": 23.5, "odds": -113, "opposing_odds": -106},
-    {"player": "Lamar Jackson", "team": "BAL", "market_key": "pass_yds", "market": "Passing Yards", "side": "over", "line": 229.5, "odds": -109, "opposing_odds": -110},
-    {"player": "Lamar Jackson", "team": "BAL", "market_key": "rush_yds", "market": "Rushing Yards", "side": "over", "line": 60.5, "odds": -104, "opposing_odds": -116},
-    {"player": "Zay Flowers", "team": "BAL", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 77.5, "odds": -106, "opposing_odds": -112},
-    {"player": "Zay Flowers", "team": "BAL", "market_key": "rec", "market": "Receptions", "side": "over", "line": 4.5, "odds": -1233, "opposing_odds": 733},
-    {"player": "Mark Andrews", "team": "BAL", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 48.5, "odds": -105, "opposing_odds": -114},
-    {"player": "Rashod Bateman", "team": "BAL", "market_key": "anytime_td", "market": "Anytime TD", "side": "yes", "line": 0.5, "odds": 230},
-    {"player": null, "team": null, "market_key": "game_total", "market": "Total Points", "side": "over", "line": 47.5, "odds": -110, "opposing_odds": -110},
-    {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_yds", "market": "1st Half Passing Yards", "side": "over", "line": 139.5, "odds": -114, "opposing_odds": -106, "scope": "first_half", "last5": [162, 148, 121, 177, 139]},
-    {"player": "Derrick Henry", "team": "BAL", "market_key": "rush_yds", "market": "1st Half Rushing Yards", "side": "over", "line": 49.5, "odds": -112, "opposing_odds": -108, "scope": "first_half", "last5": [71, 38, 64, 55, 29]},
-    {"player": "Ja'Marr Chase", "team": "CIN", "market_key": "rec_yds", "market": "1st Half Receiving Yards", "side": "over", "line": 44.5, "odds": -110, "opposing_odds": -110, "scope": "first_half"},
-    {"player": "Zay Flowers", "team": "BAL", "market_key": "rec", "market": "1st Half Receptions", "side": "over", "line": 2.5, "odds": -125, "opposing_odds": 105, "scope": "first_half"},
-    {"player": "Lamar Jackson", "team": "BAL", "market_key": "rush_yds", "market": "1st Half Rushing Yards", "side": "under", "line": 24.5, "odds": -108, "opposing_odds": -112, "scope": "first_half"},
-    {"player": null, "team": null, "market_key": "game_total", "market": "1st Half Total", "side": "over", "line": 23.5, "odds": -110, "opposing_odds": -110, "scope": "first_half"},
-    {"player": null, "team": "CIN", "market_key": "spread", "market": "Spread", "side": "over", "line": 6.5, "odds": -115, "opposing_odds": -105}
-  ],
-  "context": {
-    "game": {"pregame_spread_home": -3.5, "pregame_total": 47.5, "weather": "41F, wind 18 mph", "pass_env_mult": 0.95},
-    "players": [
-      {"name": "Lamar Jackson", "per_game": {"pass_att": 29, "pass_cmp": 19.5, "pass_yds": 235, "pass_td": 2.0, "rush_att": 8, "rush_yds": 52}, "availability": 1},
-      {"name": "Derrick Henry", "per_game": {"rush_att": 20, "rush_yds": 105, "rush_td": 0.9, "rec": 1, "rec_yds": 9}, "defense_mult": {"rush_yds": 1.08}, "availability": 1},
-      {"name": "Zay Flowers", "per_game": {"targets": 7, "rec": 5, "rec_yds": 64, "rec_td": 0.3}, "availability": 1},
-      {"name": "Rashod Bateman", "per_game": {"targets": 4.5, "rec": 2.8, "rec_yds": 42, "rec_td": 0.45}, "availability": 1},
-      {"name": "Mark Andrews", "per_game": {"targets": 4.5, "rec": 3.3, "rec_yds": 36, "rec_td": 0.5}, "availability": 1},
-      {"name": "Joe Burrow", "per_game": {"pass_att": 38, "pass_cmp": 26, "pass_yds": 280, "pass_td": 2.2, "rush_att": 2, "rush_yds": 8}, "defense_mult": {"pass_yds": 0.95}, "availability": 1},
-      {"name": "Chase Brown", "per_game": {"rush_att": 15, "rush_yds": 68, "rush_td": 0.5, "rec": 3, "rec_yds": 25, "rec_td": 0.15}, "availability": 1},
-      {"name": "Ja'Marr Chase", "per_game": {"targets": 10, "rec": 7.5, "rec_yds": 100, "rec_td": 0.85}, "defense_mult": {"rec_yds": 0.92}, "availability": 1},
-      {"name": "Tee Higgins", "per_game": {"targets": 7, "rec": 4.8, "rec_yds": 62, "rec_td": 0.55}, "availability": 0.9, "note": "Questionable tag coming in; watch for a limited snap count"}
-    ]
-  }
+   {
+    "name": "Lamar Jackson",
+    "team": "BAL",
+    "position": "QB",
+    "stats": {
+     "pass_att": 17,
+     "pass_cmp": 12,
+     "pass_yds": 145,
+     "pass_td": 1,
+     "rush_att": 5,
+     "rush_yds": 31,
+     "longest_rush": 14
+    }
+   },
+   {
+    "name": "Derrick Henry",
+    "team": "BAL",
+    "position": "RB",
+    "stats": {
+     "rush_att": 11,
+     "rush_yds": 68,
+     "rush_td": 1,
+     "longest_rush": 22,
+     "targets": 1,
+     "rec": 1,
+     "rec_yds": 6
+    }
+   },
+   {
+    "name": "Zay Flowers",
+    "team": "BAL",
+    "position": "WR",
+    "stats": {
+     "targets": 6,
+     "rec": 4,
+     "rec_yds": 52,
+     "longest_rec": 21
+    }
+   },
+   {
+    "name": "Rashod Bateman",
+    "team": "BAL",
+    "position": "WR",
+    "stats": {
+     "targets": 4,
+     "rec": 2,
+     "rec_yds": 38,
+     "rec_td": 1,
+     "longest_rec": 29
+    }
+   },
+   {
+    "name": "Mark Andrews",
+    "team": "BAL",
+    "position": "TE",
+    "stats": {
+     "targets": 4,
+     "rec": 3,
+     "rec_yds": 31,
+     "longest_rec": 14
+    }
+   },
+   {
+    "name": "Joe Burrow",
+    "team": "CIN",
+    "position": "QB",
+    "stats": {
+     "pass_att": 21,
+     "pass_cmp": 14,
+     "pass_yds": 168,
+     "pass_td": 1,
+     "rush_att": 2,
+     "rush_yds": 9
+    }
+   },
+   {
+    "name": "Chase Brown",
+    "team": "CIN",
+    "position": "RB",
+    "stats": {
+     "rush_att": 9,
+     "rush_yds": 34,
+     "longest_rush": 11,
+     "targets": 2,
+     "rec": 1,
+     "rec_yds": 6
+    }
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "team": "CIN",
+    "position": "WR",
+    "stats": {
+     "targets": 8,
+     "rec": 6,
+     "rec_yds": 82,
+     "rec_td": 1,
+     "longest_rec": 34
+    }
+   },
+   {
+    "name": "Tee Higgins",
+    "team": "CIN",
+    "position": "WR",
+    "stats": {
+     "targets": 5,
+     "rec": 3,
+     "rec_yds": 41,
+     "longest_rec": 19
+    }
+   }
+  ]
+ },
+ "research": {
+  "players": [
+   {
+    "name": "Lamar Jackson",
+    "team": "BAL",
+    "position": "QB",
+    "opponent": "CIN",
+    "home": true,
+    "team_spread": -3.5,
+    "game_total": 47.5,
+    "team_pace": 0.97,
+    "opp_pace": 1.04,
+    "pass_env": 0.95,
+    "weather": "41F, wind 18 mph",
+    "per_game": {
+     "pass_att": 29,
+     "pass_cmp": 19.5,
+     "pass_yds": 235,
+     "pass_td": 2.0,
+     "rush_att": 8,
+     "rush_yds": 52
+    },
+    "availability": 1
+   },
+   {
+    "name": "Derrick Henry",
+    "team": "BAL",
+    "position": "RB",
+    "opponent": "CIN",
+    "home": true,
+    "team_spread": -3.5,
+    "game_total": 47.5,
+    "team_pace": 0.97,
+    "opp_pace": 1.04,
+    "pass_env": 0.95,
+    "weather": "41F, wind 18 mph",
+    "per_game": {
+     "rush_att": 20,
+     "rush_yds": 105,
+     "rush_td": 0.9,
+     "rec": 1,
+     "rec_yds": 9
+    },
+    "availability": 1,
+    "scheme_mult": {
+     "rush_yds": 1.08
+    }
+   },
+   {
+    "name": "Zay Flowers",
+    "team": "BAL",
+    "position": "WR",
+    "opponent": "CIN",
+    "home": true,
+    "team_spread": -3.5,
+    "game_total": 47.5,
+    "team_pace": 0.97,
+    "opp_pace": 1.04,
+    "pass_env": 0.95,
+    "weather": "41F, wind 18 mph",
+    "per_game": {
+     "targets": 7,
+     "rec": 5,
+     "rec_yds": 64,
+     "rec_td": 0.3
+    },
+    "availability": 1
+   },
+   {
+    "name": "Rashod Bateman",
+    "team": "BAL",
+    "position": "WR",
+    "opponent": "CIN",
+    "home": true,
+    "team_spread": -3.5,
+    "game_total": 47.5,
+    "team_pace": 0.97,
+    "opp_pace": 1.04,
+    "pass_env": 0.95,
+    "weather": "41F, wind 18 mph",
+    "per_game": {
+     "targets": 4.5,
+     "rec": 2.8,
+     "rec_yds": 42,
+     "rec_td": 0.45
+    },
+    "availability": 1
+   },
+   {
+    "name": "Mark Andrews",
+    "team": "BAL",
+    "position": "TE",
+    "opponent": "CIN",
+    "home": true,
+    "team_spread": -3.5,
+    "game_total": 47.5,
+    "team_pace": 0.97,
+    "opp_pace": 1.04,
+    "pass_env": 0.95,
+    "weather": "41F, wind 18 mph",
+    "per_game": {
+     "targets": 4.5,
+     "rec": 3.3,
+     "rec_yds": 36,
+     "rec_td": 0.5
+    },
+    "availability": 1
+   },
+   {
+    "name": "Joe Burrow",
+    "team": "CIN",
+    "position": "QB",
+    "opponent": "BAL",
+    "home": false,
+    "team_spread": 3.5,
+    "game_total": 47.5,
+    "team_pace": 1.04,
+    "opp_pace": 0.97,
+    "pass_env": 0.95,
+    "weather": "41F, wind 18 mph",
+    "per_game": {
+     "pass_att": 38,
+     "pass_cmp": 26,
+     "pass_yds": 280,
+     "pass_td": 2.2,
+     "rush_att": 2,
+     "rush_yds": 8
+    },
+    "availability": 1,
+    "scheme_mult": {
+     "pass_yds": 0.95
+    }
+   },
+   {
+    "name": "Chase Brown",
+    "team": "CIN",
+    "position": "RB",
+    "opponent": "BAL",
+    "home": false,
+    "team_spread": 3.5,
+    "game_total": 47.5,
+    "team_pace": 1.04,
+    "opp_pace": 0.97,
+    "pass_env": 0.95,
+    "weather": "41F, wind 18 mph",
+    "per_game": {
+     "rush_att": 15,
+     "rush_yds": 68,
+     "rush_td": 0.5,
+     "rec": 3,
+     "rec_yds": 25,
+     "rec_td": 0.15
+    },
+    "availability": 1
+   },
+   {
+    "name": "Ja'Marr Chase",
+    "team": "CIN",
+    "position": "WR",
+    "opponent": "BAL",
+    "home": false,
+    "team_spread": 3.5,
+    "game_total": 47.5,
+    "team_pace": 1.04,
+    "opp_pace": 0.97,
+    "pass_env": 0.95,
+    "weather": "41F, wind 18 mph",
+    "per_game": {
+     "targets": 10,
+     "rec": 7.5,
+     "rec_yds": 100,
+     "rec_td": 0.85
+    },
+    "availability": 1,
+    "scheme_mult": {
+     "rec_yds": 0.92
+    }
+   },
+   {
+    "name": "Tee Higgins",
+    "team": "CIN",
+    "position": "WR",
+    "opponent": "BAL",
+    "home": false,
+    "team_spread": 3.5,
+    "game_total": 47.5,
+    "team_pace": 1.04,
+    "opp_pace": 0.97,
+    "pass_env": 0.95,
+    "weather": "41F, wind 18 mph",
+    "per_game": {
+     "targets": 7,
+     "rec": 4.8,
+     "rec_yds": 62,
+     "rec_td": 0.55
+    },
+    "availability": 0.9,
+    "note": "Questionable tag coming in; watch for a limited snap count",
+    "effectiveness": 0.94
+   }
+  ]
+ }
 }
 </script>
 
@@ -936,317 +1308,130 @@ if (typeof module !== "undefined") module.exports = { analyzeAll, projectPlayers
 /* ---------- page ---------- */
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const KEYS = Object.keys(MARKETS).join(", ");
-let sample = null, ctl = null;
+let sample = null, ctl = null, shots = [], diag = {}, last = null;
 
-function oddsText(o) { o = Number(o); return isFinite(o) && o !== 0 ? (o > 0 ? "+" + o : String(o)) : ""; }
-let teamNames = {};
-function teamLabel(abbr) { if (!abbr) return ""; const n = teamNames[String(abbr).toUpperCase()]; return n ? `${n} (${String(abbr).toUpperCase()})` : String(abbr); }
-function propTitle(r) {
-  const p = r.prop, side = r.side;
-  const mk = MARKETS[r.key] || p.market || "";
-  const scope = { second_half: " (2H)", first_half: " (1H)", first_quarter: " (1Q)" }[r.scope] || "";
-  if (r.key === "anytime_td") return { who: p.player, what: `${side === "no" ? "No" : ""} Anytime TD${scope}`.trim() };
-  const teamName = teamLabel(p.team) || p.player || p.market || "Team";
-  if (r.key === "moneyline") return { who: teamName, what: "Moneyline" + scope };
-  if (r.key === "spread") return { who: teamName, what: `Spread ${r.line > 0 ? "+" : ""}${r.line}${scope}` };
-  if (r.key === "game_total") return { who: "Game total", what: `${side === "under" ? "Under" : "Over"} ${r.line}${scope}` };
-  if (r.key === "team_total") return { who: `${teamName} team total`, what: `${side === "under" ? "Under" : "Over"} ${r.line}${scope}` };
-  const sd = side === "under" ? "Under" : side === "no" ? "No" : side === "yes" ? "Yes" : "Over";
-  return { who: p.player || teamLabel(p.team) || p.market || "Unnamed prop", what: `${sd} ${isFinite(r.line) ? r.line : ""} ${mk || p.market}${scope}`.replace(/\s+/g, " ").trim() };
-}
-function projText(pr) {
-  if (!pr || !isFinite(pr.value)) return "";
-  const d = pr.dec ?? (Math.abs(pr.value) < 10 && pr.value % 1 ? 1 : 0);
-  const v = Number(pr.value).toFixed(d);
-  return `${pr.unit.startsWith("pt margin") && pr.value > 0 ? "+" : ""}${v} ${pr.unit.replace(/^Pass |^Rush |^Rec /, m => m).toLowerCase()}`;
-}
-function propRow(r, i, isPre) {
-  const t = propTitle(r), pc = Math.round(r.p * 100);
-  const showProg = !isPre && r.progress && isFinite(r.progress.line) && r.progress.line > 0;
-  const prog = showProg
-    ? `<div class="prog"><span>${esc(r.progress.cur)}</span><span class="bar"><i style="width:${Math.min(100, r.progress.cur / r.progress.line * 100).toFixed(1)}%"></i></span><span>${esc(r.progress.line)}</span></div>` : "";
-  const proj = isPre && r.proj ? `<div class="prog"><span class="proj"><b>Proj</b>${esc(projText(r.proj))}</span>${r.actual ? `<span class="res ${r.actual.hit ? "ok" : "no"}">1st half: ${esc(r.actual.label)} · ${r.actual.hit ? "hit" : "missed"}</span>` : ""}</div>` : "";
-  return `<article class="prop" tabindex="0" aria-expanded="false">
-      <div class="pct ${tone(r.p)}">${pc}%<small>to hit</small></div>
-      <div class="pname"><span class="rank">${i + 1}</span>${esc(t.who)}</div>
-      <div class="pline"><span>${esc(t.what)}</span><span class="odds">${esc(oddsText(r.prop.odds))}</span>${r.l5 && r.l5.hits !== null ? `<span class="l5" title="${esc(r.l5.text)}">L${r.l5.n} ${r.l5.hits}/${r.l5.n}</span>` : ""}</div>
-      ${prog}${proj}
-      <div class="why" hidden><ul>${r.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
-    </article>`;
-}
-function tone(p) { return p >= 0.7 ? "hi" : p >= 0.5 ? "mid" : "lo"; }
-
+/* ---------- output ---------- */
 function confLabel(c) { return c >= 60 ? ["hi", "High"] : c >= 40 ? ["mid", "Medium"] : ["lo", "Low"]; }
-function num(v, yards) { return yards || v >= 10 ? Math.round(v).toString() : (Math.round(v * 10) / 10).toString(); }
-function render(data, result) {
-  const g = data.game || {}, h = g.home || {}, a = g.away || {};
-  teamNames = {}; for (const t of [h, a]) if (t.abbr && t.name) teamNames[String(t.abbr).toUpperCase()] = t.name;
-  const c = result.ctx, live = c.elapsed > 0;
-  const st = c.elapsed === 0 ? "Pregame" : /half/i.test(g.status || "") ? "Halftime" : g.status || (g.quarter ? `Q${g.quarter}` : "");
+function num(v, yards) { return yards || Math.abs(v) >= 10 ? Math.round(v).toString() : (Math.round(v * 10) / 10).toString(); }
+function render(players, box, example) {
+  const g = box?.game;
+  const live = players.some(p => p.live);
   $("#head").innerHTML = `
-    ${data.example ? '<span class="tag">Example game · upload your recording to analyze yours</span>' : ""}
-    <div class="score">
-      <div class="team"><span class="ab">${esc(a.abbr || "AWAY")}</span><span class="pts">${esc(a.score ?? "–")}</span></div>
-      <div class="clock"><b>${esc(st)}</b>${live && !/half/i.test(st) ? esc(g.clock || "") + "<br>" : ""}${live ? Math.round(c.remaining) + " min left" : "projections for the full game"}</div>
-      <div class="team r"><span class="ab">${esc(h.abbr || "HOME")}</span><span class="pts">${esc(h.score ?? "–")}</span></div>
-    </div>
-    <div class="meta">${result.players.length} players · most confident first${c.weather ? " · " + esc(c.weather) : ""}</div>`;
-
-  $("#preSec").innerHTML = "";
-  $("#liveSec").innerHTML = `<div class="sec-h"><h2>Projected stats</h2><span>final game totals · tap a player for the why</span></div>
-    <div class="list">${result.players.map((p, i) => playerCard(p, i, live)).join("") || '<p class="hint">No QBs, RBs, WRs or TEs were found in the recording.</p>'}</div>`;
-  $("#settled").innerHTML = "";
-
+    ${example ? '<span class="tag">Example · type your players above</span>' : ""}
+    ${g && live ? `<div class="score">
+      <div class="team"><span class="ab">${esc(g.away?.abbr || "AWAY")}</span><span class="pts">${esc(g.away?.score ?? "–")}</span></div>
+      <div class="clock"><b>${esc(/half/i.test(g.status || "") ? "Halftime" : g.status || "Live")}</b>from the box score</div>
+      <div class="team r"><span class="ab">${esc(g.home?.abbr || "HOME")}</span><span class="pts">${esc(g.home?.score ?? "–")}</span></div>
+    </div>` : ""}
+    <div class="meta">${players.filter(p => !p.missing).length} players · most confident first</div>`;
+  const cards = players.filter(p => !p.missing).map(playerCard).join("");
+  const missing = players.filter(p => p.missing).map(p => esc(p.name));
+  $("#liveSec").innerHTML = `<div class="sec-h"><h2>Projections</h2><span>1st half · full game · tap a player for the why</span></div>
+    <div class="list">${cards || '<p class="hint">No QBs, RBs, WRs or TEs to project.</p>'}</div>
+    ${missing.length ? `<p class="hint">Couldn't identify: ${missing.join(", ")}. Check the spelling or add the team.</p>` : ""}`;
   const cols = ["pass_yds", "pass_att", "pass_cmp", "rush_att", "rush_yds", "rec", "rec_yds"];
-  $("#readout").innerHTML = (data.players || []).length ? `<details class="box"><summary>What it read from the recording</summary><div class="tbl"><table><tr><th>Player</th><th>Tm</th>${cols.map(k => `<th>${esc(k.replace("_", " "))}</th>`).join("")}</tr>${data.players.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.team)}</td>${cols.map(k => `<td>${p.stats?.[k] ?? ""}</td>`).join("")}</tr>`).join("")}</table></div></details>` : "";
+  $("#readout").innerHTML = (box?.players || []).length ? `<details class="box"><summary>What it read from the box score</summary><div class="tbl"><table><tr><th>Player</th><th>Tm</th>${cols.map(k => `<th>${esc(k.replace("_", " "))}</th>`).join("")}</tr>${box.players.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.team)}</td>${cols.map(k => `<td>${p.stats?.[k] ?? ""}</td>`).join("")}</tr>`).join("")}</table></div></details>` : "";
 }
-function playerCard(p, i, live) {
+function playerCard(p, i) {
   const [tone, word] = confLabel(p.conf);
   const rows = p.rows.map(r => {
     const [t] = confLabel(r.conf);
     return `<div class="srow">
       <span class="slab">${esc(r.label)}</span>
+      <span class="sh1">${num(r.h1.value, r.yards)}</span>
       <span class="sval">${num(r.med, r.yards)}</span>
-      <span class="srng">${num(r.lo, r.yards)}–${num(r.hi, r.yards)}${live ? ` · has ${num(r.cur, r.yards)}` : ""}</span>
+      <span class="srng">${r.h1.actual ? "1H final" : r.h1.lo !== undefined ? `1H ${num(r.h1.lo, r.yards)}–${num(r.h1.hi, r.yards)}` : ""} · game ${num(r.lo, r.yards)}–${num(r.hi, r.yards)}</span>
       <span class="sconf ${t}" title="confidence">${Math.round(r.conf)}</span>
     </div>`;
   }).join("");
   const why = p.rows.map(r => `<li><b>${esc(r.label)}:</b> ${esc(r.reasons.join(" · ") || "season average, no adjustments")}</li>`).join("");
+  const matchup = `${p.team}${p.opp && p.opp !== "OPP" ? (p.home ? " vs " : " @ ") + p.opp : ""}`;
   return `<article class="prop player" tabindex="0" aria-expanded="false">
-    <div class="phead"><span class="rank">${i + 1}</span><span class="pname">${esc(p.name)}</span><span class="pmeta">${esc([p.team, p.position].filter(Boolean).join(" · "))}</span><span class="cbadge ${tone}">${word} · ${Math.round(p.conf)}</span></div>
-    <div class="stats">${rows}</div>
+    <div class="phead"><span class="rank">${i + 1}</span><span class="pname">${esc(p.name)}</span><span class="pmeta">${esc(matchup + " · " + p.position)}${p.live ? ` · ${esc(p.score)}` : ""}</span><span class="cbadge ${tone}">${word} · ${Math.round(p.conf)}</span></div>
+    <div class="stats"><div class="shead"><span>Stat</span><span>1st half</span><span>Full game</span><span title="confidence">Conf</span></div>${rows}</div>
     <div class="why" hidden>${p.note ? `<p>${esc(p.note)}</p>` : ""}<ul>${why}</ul></div>
   </article>`;
 }
-
-for (const id of ["#preSec", "#liveSec"]) {
-  $(id).addEventListener("click", ev => toggle(ev.target.closest(".prop")));
-  $(id).addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(ev.target.closest(".prop")); } });
-}
+$("#liveSec").addEventListener("click", ev => toggle(ev.target.closest(".prop")));
+$("#liveSec").addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(ev.target.closest(".prop")); } });
 function toggle(el) { if (!el) return; const w = el.querySelector(".why"); w.hidden = !w.hidden; el.setAttribute("aria-expanded", String(!w.hidden)); }
 
-/* ---------- frames ---------- */
-function once(el, ev, ms = 8000) { return new Promise((res, rej) => { const t = setTimeout(() => rej(new Error("timeout " + ev)), ms); el.addEventListener(ev, () => { clearTimeout(t); res(); }, { once: true }); }); }
-async function seek(v, t) { if (Math.abs(v.currentTime - t) < 0.01) return; const p = once(v, "seeked", 5000); v.currentTime = t; await p; }
-function thumb(src, w, h) { const c = document.createElement("canvas"); c.width = 48; c.height = Math.max(8, Math.round(48 * h / w)); const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(src, 0, 0, c.width, c.height); const d = x.getImageData(0, 0, c.width, c.height).data; const g = new Float32Array(d.length / 4); for (let i = 0; i < g.length; i++) g[i] = d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11; return g; }
-function diff(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; }
+/* ---------- inputs ---------- */
+function parseNames(text) {
+  return String(text || "").split(/\n|,|;/).map(t => t.trim()).filter(Boolean).map(t => {
+    const m = t.match(/^(.*?)\s+(?:vs\.?|@|at)\s+([A-Za-z0-9 .']+)$/i);
+    if (!m) return { name: t };
+    const o = m[2].trim(), up = o.toUpperCase(), k = defKey(o);
+    // "SF", "49ers", "San Francisco 49ers" -> SF; anything else is passed to Claude as written
+    const abbr = NFL[up] ? up : Object.keys(NFL).find(a => k.includes(NFL[a]));
+    return { name: m[1].trim(), opp: abbr || o };
+  });
+}
 function toBlob(src, w, h) {
   const k = Math.min(1, 1568 / Math.max(w, h)); const c = document.createElement("canvas");
   c.width = Math.round(w * k); c.height = Math.round(h * k); c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
   return new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
 }
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-let diag = {};
-async function until(test, ms) { const t0 = Date.now(); while (!test()) { if (Date.now() - t0 > ms) return false; await sleep(100); } return true; }
-// iPhones won't load a video that is off the page or has never played, so the player sits
-// on the page (invisible) and is started muted before any frame is read.
-async function openVideo(file) {
-  const v = document.createElement("video");
-  v.muted = true; v.defaultMuted = true; v.playsInline = true; v.preload = "auto";
-  v.setAttribute("muted", ""); v.setAttribute("playsinline", ""); v.setAttribute("webkit-playsinline", "");
-  Object.assign(v.style, { position: "fixed", left: "0", top: "0", width: "2px", height: "2px", opacity: "0.01", pointerEvents: "none", zIndex: "-1" });
-  document.body.appendChild(v);
-  const url = URL.createObjectURL(file);
-  v.src = url; v.load();
-  const close = () => { try { v.pause(); } catch {} v.removeAttribute("src"); v.load(); v.remove(); URL.revokeObjectURL(url); };
-  if (!(await until(() => v.readyState >= 1, 20000))) { close(); throw { code: "video_load" }; }
-  try { await v.play(); } catch {}
-  const ok = await until(() => v.readyState >= 2 && v.videoWidth > 0, 20000);
-  try { v.pause(); } catch {}
-  if (!ok) { close(); throw { code: "video_load" }; }
-  return { v, close };
-}
-// Seek and wait for the new frame to be decoded; false if the browser never gets there.
-async function seekTo(v, t) {
-  if (Math.abs(v.currentTime - t) < 0.01 && v.readyState >= 2) return true;
-  const done = new Promise(res => { const h = () => res(true); v.addEventListener("seeked", h, { once: true }); setTimeout(() => { v.removeEventListener("seeked", h); res(false); }, 4000); });
-  v.currentTime = t;
-  if (!(await done)) return false;
-  if (v.requestVideoFrameCallback) await Promise.race([new Promise(r => v.requestVideoFrameCallback(() => r())), sleep(250)]);
-  else await sleep(60);
-  return v.readyState >= 2;
-}
-async function framesFromVideo(file, onTick) {
-  const { v, close } = await openVideo(file);
-  const out = []; let last = null;
-  const grab = async t => {
-    const W = v.videoWidth, H = v.videoHeight; if (!W) return;
-    const th = thumb(v, W, H);
-    if (!last || diff(th, last) > 5) { out.push({ t, blob: await toBlob(v, W, H) }); last = th; }
-  };
-  try {
-    let dur = v.duration;
-    if (!isFinite(dur) || dur <= 0) { await seekTo(v, 1e6); dur = isFinite(v.duration) ? v.duration : v.currentTime || 60; }
-    const step = clamp(dur / 180, 0.3, 1);
-    let misses = 0, tries = 0;
-    diag.video = { duration: Math.round(dur * 10) / 10, size: `${v.videoWidth}x${v.videoHeight}`, method: "seek" };
-    for (let t = 0.05; t < dur; t += step) {
-      tries++;
-      if (await seekTo(v, Math.min(t, dur - 0.05))) await grab(t); else misses++;
-      onTick?.(t / dur, out.length);
-      if (tries >= 6 && misses / tries > 0.5) break;   // seeking isn't working here; fall back to playing it
-    }
-    diag.video.seekMisses = `${misses}/${tries}`;
-    if (out.length < 2 && dur > 1) {
-      diag.video.method = "playback";
-      // Fallback: play the recording through (sped up) and sample frames as it plays.
-      v.currentTime = 0; await sleep(200);
-      try { v.playbackRate = 2; } catch {}
-      try { await v.play(); } catch {}
-      const t0 = Date.now(), limit = (dur / 2 + 15) * 1000;
-      while (!v.ended && Date.now() - t0 < limit) {
-        await sleep(350);
-        if (v.readyState >= 2) await grab(v.currentTime);
-        onTick?.(v.currentTime / dur, out.length);
-      }
-      try { v.pause(); } catch {}
-    }
-    if (!out.length) throw { code: "video_load" };
-    return out;
-  } finally { close(); }
-}
-async function framesFromImage(file) {
-  const bmp = await createImageBitmap(file);
-  return [{ t: 0, blob: await toBlob(bmp, bmp.width, bmp.height) }];
-}
-function pickEven(arr, n) { if (arr.length <= n) return arr; const out = []; for (let i = 0; i < n; i++) out.push(arr[Math.round(i * (arr.length - 1) / (n - 1))]); return out; }
+async function shrink(file) { const bmp = await createImageBitmap(file); return toBlob(bmp, bmp.width, bmp.height); }
+$("#shots").addEventListener("change", e => {
+  shots = shots.concat([...e.target.files]); e.target.value = "";
+  $("#shotsInfo").textContent = shots.length ? `${shots.length} screenshot${shots.length > 1 ? "s" : ""} added` : "No screenshots";
+  $("#shotsClear").hidden = !shots.length;
+});
+$("#shotsClear").addEventListener("click", () => { shots = []; $("#shotsInfo").textContent = "No screenshots"; $("#shotsClear").hidden = true; });
+try { const saved = localStorage.getItem("playerNames"); if (saved) $("#names").value = saved; } catch {}
 
 /* ---------- Claude ---------- */
-const EXTRACT_PROMPT = (i, n) => `These ${n} images are frames, in time order, from a screen recording of a live NFL game (batch ${i}). The recording shows a box score / live stats and a sportsbook prop board.
+const BOX_PROMPT = n => `These ${n} images are screenshots of an NFL game's box score / live stats (any app or site), taken during the game, usually at halftime.
+Reply with only this JSON:
+{"game":{"home":{"abbr":"BAL","name":"Ravens","score":17},"away":{"abbr":"CIN","name":"Bengals","score":10},"status":"Halftime|Q2|Q3|...","quarter":2,"clock":"0:00"},
+ "players":[{"name":"Full Name","team":"ABBR","position":"QB|RB|WR|TE","stats":{"pass_att":0,"pass_cmp":0,"pass_yds":0,"pass_td":0,"int":0,"rush_att":0,"rush_yds":0,"rush_td":0,"targets":0,"rec":0,"rec_yds":0,"rec_td":0}}]}
+Rules: standard NFL team abbreviations, used consistently. Passing lines often read "C/ATT" (e.g. 14/21 = 14 completions on 21 attempts). Rushing "CAR" = rush_att; receiving "REC" = rec, "TGTS" = targets. Include only numbers you can read; omit the rest. Include every QB, RB, WR and TE shown. If the position isn't shown, infer it from which table the player is in (passing -> QB, mostly rushing -> RB, receiving -> WR unless you know he's a TE). Ignore any timers that aren't the game clock. If nothing relevant is visible, return empty arrays.`;
 
-
-The board may mix pregame/1st-half lines with live or 2nd-half lines; capture all of them.
-Stake layout (the usual source): a player's prop page shows his name ONCE at the top; below it each market is a card with a title (e.g. "1st Half Rushing Yards"), a "Last 5:" row, the line on the right (e.g. 23.5) and two buttons "Over 1.79" / "Under 1.88". Every card on that page belongs to that player until a different player's name appears. The clock-like "00:25:46" next to the AIGC logo under the balance is a session timer, NOT the game clock: ignore it. If no scoreboard or box score is visible, set game.status to "pregame" and leave scores null.
-Read EVERYTHING visible and reply with only this JSON:
-{"game":{"home":{"abbr":"BAL","name":"Ravens","score":17},"away":{"abbr":"CIN","name":"Bengals","score":10},"status":"Halftime|Q3|Final|...","quarter":2,"clock":"0:00"},
- "players":[{"name":"Full Name","team":"ABBR","position":"QB|RB|WR|TE|K|LB|...","stats":{"pass_att":0,"pass_cmp":0,"pass_yds":0,"pass_td":0,"int":0,"rush_att":0,"rush_yds":0,"rush_td":0,"longest_rush":0,"targets":0,"rec":0,"rec_yds":0,"rec_td":0,"longest_rec":0,"tackles":0,"sacks":0,"fg_made":0,"xp_made":0}}],
- "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"odds_decimal":1.79,"opposing_odds_decimal":1.88,"scope":"full_game|first_half|first_quarter|second_half","last5":[5,30,9,8,24]}],
- "last_player_header":"the player whose prop list is showing at the bottom of the LAST frame, or null"}
-
-Rules:
-- Use the same team abbreviations in players, props and game. Every spread, moneyline and team-total prop MUST have "team" set to that team's abbreviation (never null, never the full name); player is null for those. Unknown field: null (or omit the stat).
-- Include only stats you can actually read; never guess numbers.
-- One entry per side: if Over and Under are both shown, emit two entries, each with its own odds and the other side's odds as opposing_odds.
-- Odds: copy exactly what is shown. Decimal odds (1.79, 3.48) go in odds_decimal / opposing_odds_decimal and leave odds null; American odds (-115, +140) go in odds / opposing_odds. Never convert.
-- Spread: side "over", line = the handicap for that team (e.g. -3.5), team set. Moneyline: side "over", line 0, team set. Team total: team set.
-- Scope from the market title: "1st Half ..." -> first_half, "1st Quarter ..." -> first_quarter, "2nd Half ..." -> second_half, otherwise full_game. Skip 2nd/3rd/4th-quarter lines. market_key is the stat without the period (1st Half Rushing Yards -> rush_yds, 1st Quarter Rushing Attempts -> rush_att).
-- Every player prop MUST name its player. Books often show the name once, as a header, tab, or page title above a list of markets ("1st Half Rushing Yards", "Passing Attempts"...) instead of on each line: give every market under that header that player's full name. Never leave player null on a player stat market. These frames are one slice of a longer recording: if props at the top of the first frame sit under a player header that scrolled off before these frames began, set their player to "^" (it will be filled in from the previous slice). If you truly cannot tell whose it is otherwise, emit it with player null.
-- Anything you cannot map goes in with market_key "other".
-- Many boards show small numbers under or beside a prop (often a mini bar chart, or labeled L5 / Last 5): that player's results for that same stat in recent games. Stake shows "Last 5: 5 ▸ 30 ▸ 9 ▸ 8 ▸ [24]" (oldest to newest, the boxed number is the latest game): put the numbers in "last5" in the order shown, and copy them onto both the Over and Under entries. They are NOT live stats, lines or odds; never use them for "stats" or "odds". Omit last5 when none are shown.
-- If these frames show nothing relevant, return empty arrays.`;
-
-function mergeBatches(parts) {
-  const out = { game: {}, players: [], props: [] };
-  const pMap = new Map(), prMap = new Map();
-  for (const b of parts) {
-    if (!b || typeof b !== "object") continue;
-    const g = b.game || {};
-    for (const s of ["home", "away"]) {
-      if (g[s]) { out.game[s] = out.game[s] || {}; for (const [k, v] of Object.entries(g[s])) if (v !== null && v !== undefined && v !== "") out.game[s][k] = k === "score" ? Math.max(Number(v) || 0, Number(out.game[s][k]) || 0) : v; }
-    }
-    for (const k of ["status", "quarter", "clock"]) if (g[k] !== null && g[k] !== undefined && g[k] !== "") out.game[k] = g[k];
-    for (const p of b.players || []) {
-      if (!p?.name) continue; const k = normName(p.name);
-      const cur = pMap.get(k) || { name: p.name, team: p.team, position: p.position, stats: {} };
-      cur.team = cur.team || p.team; cur.position = cur.position || p.position;
-      for (const [s, v] of Object.entries(p.stats || {})) { const n = Number(v); if (isFinite(n) && v !== null) cur.stats[s] = Math.max(n, cur.stats[s] ?? -Infinity); }
-      pMap.set(k, cur);
-    }
-    for (const p of b.props || []) {
-      if (!p || (p.line === null && !["moneyline", "anytime_td"].includes(p.market_key))) continue;
-      const k = [normName(p.player), String(p.team || "").toUpperCase(), p.market_key, p.market_key === "other" ? normName(p.market) : "", String(p.side).toLowerCase(), Number(p.line), p.scope || ""].join("|");
-      prMap.set(k, { ...(prMap.get(k) || {}), ...Object.fromEntries(Object.entries(p).filter(([, v]) => v !== null && v !== undefined)) });
-    }
-  }
-  out.players = [...pMap.values()];
-  const toAm = d => { d = Number(d); if (!isFinite(d) || d <= 1) return null; return d >= 2 ? Math.round((d - 1) * 100) : Math.round(-100 / (d - 1)); };
-  out.props = [...prMap.values()].map((p, i) => {
-    const q = { ...p, id: "p" + i, line: p.line === undefined ? 0.5 : p.line };
-    if (q.odds_decimal != null) q.odds = toAm(q.odds_decimal) ?? q.odds;
-    if (q.opposing_odds_decimal != null) q.opposing_odds = toAm(q.opposing_odds_decimal) ?? q.opposing_odds;
-    return q;
+function researchPrompt(entries, box) {
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = entries.map(e => {
+    const bp = box ? matchByName(box.players || [], e.name) : null;
+    return { name: e.name, opponent_given: e.opp || undefined, team_in_box_score: bp?.team, position_in_box_score: bp?.position };
   });
-  return out;
-}
-
-function contextPrompt(d, only, withOthers = true) {
-  const players = only || [...new Set(d.props.filter(p => p.player).map(p => p.player))];
-  const roster = players.map(n => { const p = d.players.find(x => normName(x.name) === normName(n)); return { name: n, team: p?.team || d.props.find(x => x.player === n)?.team, position: p?.position, stats_so_far: p?.stats || {} }; });
-  const markets = {}; d.props.filter(p => p.player).forEach(p => { (markets[p.player] = markets[p.player] || new Set()).add(p.market_key); });
-  const recent = {}; d.props.filter(p => p.player && Array.isArray(p.last5)).forEach(p => { ((recent[p.player] = recent[p.player] || {})[p.market_key + (p.scope === "first_half" ? "_1h" : "")] = p.last5); });
-  const others = (withOthers ? d.props : []).filter(p => p.market_key === "other").map(p => ({ id: p.id, player: p.player, team: p.team, market: p.market, side: p.side, line: p.line, odds: p.odds }));
-  return `You are an NFL analyst. A live game: ${JSON.stringify(d.game)}.
-Players (with any stats so far, and the prop markets the book offered for them):
-${JSON.stringify(roster.map(r => ({ ...r, markets: [...(markets[r.name] || [])], last5_from_book: recent[r.name] || undefined })))}
-${others.length ? "Unusual markets to estimate directly:\n" + JSON.stringify(others) : ""}
+  return `You are an NFL analyst. Today is ${today}. ${box?.game?.home ? `A box score shows ${box.game.away?.abbr} @ ${box.game.home?.abbr}.` : ""}
+Project these players for their NEXT game (today's game if they play today):
+${JSON.stringify(rows)}
 
 Using everything you know (this season's per-game averages through your latest knowledge, target/carry/red-zone share, injuries to the player and his teammates, the opponent's scheme, weather and venue, each team's pace, the referee crew, coaching tendencies), reply with only this JSON:
-{"game":{"pregame_spread_home":-3.5,"pregame_total":47.5,"weather":"short text or empty","pass_env_mult":1.0,"big_play_env":1.0,"kick_env":1.0,"pace_mult_home":1.0,"pace_mult_away":1.0,"ref_mult":1.0},
- "players":[{"name":"exact name from the list","position":"RB","team":"ATL","per_game":{"<stat>":number},"scheme_mult":{"<stat>":number},"usage_mult":1.0,"availability":1.0,"effectiveness":1.0,"big_play":0.5,"note":"one short sentence, only if it matters"}],
- "other":[{"id":"p12","p":0.55,"why":"one short sentence"}]}
+{"players":[{"name":"full correct name","team":"ATL","position":"QB|RB|WR|TE","opponent":"SF","home":true,"team_spread":-3.5,"game_total":45.5,
+  "per_game":{"<stat>":number},"scheme_mult":{"<stat>":number},"usage_mult":1.0,"availability":1.0,"effectiveness":1.0,"big_play":0.5,
+  "team_pace":1.0,"opp_pace":1.0,"pass_env":1.0,"big_play_env":1.0,"kick_env":1.0,"ref_mult":1.0,"weather":"short text or empty","note":"one short sentence, only if it matters"}]}
 
-For every player also give "position" (QB, RB, WR, TE, K, or DEF) and "team" (abbreviation). Per-game averages always needed by position: QB -> pass_yds, pass_att, pass_cmp, pass_td, rush_yds, rush_att; RB -> rush_yds, rush_att, rush_td, targets, rec, rec_yds; WR/TE -> targets, rec, rec_yds, rec_td.
-Stat keys for per_game: pass_att, pass_cmp, pass_yds, pass_td, int, rush_att, rush_yds, rush_td, targets, rec, rec_yds, rec_td, tackles, sacks, fg_made, xp_made. Also give per-game averages for every stat behind their markets (Rush + Rec Yds needs rush_yds and rec_yds; Anytime TD needs rush_td and rec_td; Longest Reception needs rec and rec_yds; yardage markets also need the matching touch stat: pass_cmp, rush_att or rec).
-scheme_mult: how this defense's scheme fits THIS player beyond raw yards allowed (yards-allowed ranks are applied separately): shadow corner on a WR1 ~0.88, a defense that funnels targets to the slot/TE/RB ~1.10, two-high shell vs a deep threat ~0.92; also TDs/sacks/INTs/tackles matchups. Omit if neutral.
-usage_mult: change in this player's target/carry share vs his season average from teammates out or returning, or a role change (WR1 out -> WR2 ~1.15; RB back from injury splitting work ~0.85). 1.0 if nothing changed.
-availability: probability the player finishes the game (lower for a questionable tag or an in-game injury).
-effectiveness: per-touch efficiency if playing through an injury (0.9 hobbled), 1.0 if healthy.
-big_play: 0-1 reliance on explosive plays (deep threat or home-run back ~0.8, possession receiver / short-area TE ~0.25, average 0.5).
-pace_mult_home/away: each offense's plays per game vs league average (no-huddle/fast ~1.06, slow and run-heavy ~0.94).
-ref_mult: this officiating crew's tendency (flag-heavy on DPI/holding that extends drives ~1.02, lets them play ~0.98); 1.0 if unknown.
-pass_env_mult: wind/rain effect on passing yards (1.0 dome or calm, ~0.92 for 20+ mph wind). big_play_env: heavy rain/snow ~0.85 (fewer explosive plays), else 1.0. kick_env: field-goal success/volume in wind or snow (strong wind ~0.85), else 1.0.
-Use null for pregame lines you don't know. Estimates are fine; be calibrated, not optimistic.`;
+per_game by position: QB -> pass_yds, pass_att, pass_cmp, pass_td, rush_yds, rush_att; RB -> rush_yds, rush_att, rush_td, targets, rec, rec_yds; WR/TE -> targets, rec, rec_yds, rec_td.
+Use opponent_given / team_in_box_score when provided. team_spread is from this player's team's side (-3.5 = favored by 3.5); null if unknown. home true if his team is at home.
+scheme_mult: how this defense's scheme fits THIS player beyond raw yards allowed (shadow corner on a WR1 ~0.88, a defense that funnels targets to the slot/TE/RB ~1.10); omit if neutral.
+usage_mult: change in his share vs his season average from teammates out or returning, or a role change (WR1 out -> WR2 ~1.15); 1.0 if none.
+availability: probability he finishes the game. effectiveness: per-touch efficiency if playing hurt (0.9), else 1.0. big_play: 0-1 reliance on explosive plays (deep threat ~0.8, possession ~0.25).
+team_pace/opp_pace: plays per game vs league average (fast ~1.06, slow ~0.94). pass_env: wind/rain effect on passing (20+ mph wind ~0.92). big_play_env: heavy rain/snow ~0.85. ref_mult: flag-heavy crew ~1.02, else 1.0.
+If you don't recognize a name, still return it with position null. Be calibrated, not optimistic.`;
 }
 
-function setStep(name, cls, text) {
-  const li = $(`#steps li[data-s="${name}"]`); if (!li) return;
-  li.className = cls || ""; if (text) li.textContent = text;
-}
+function setStep(name, cls, text) { const li = $(`#steps li[data-s="${name}"]`); if (!li) return; li.className = cls || ""; if (text) li.textContent = text; }
 function showErr(msg) { const e = $("#err"); e.textContent = msg; e.hidden = !msg; }
 function errText(e) {
   const c = e?.code;
-  if (c === "not_granted" || c === "sampling_disabled" || c === "capability_disabled") return "This page needs permission to use Claude to read the recording. Allow it from the prompt or the artifact's Permissions menu, then try again.";
-  if (c === "images_unavailable") return "Image reading isn't available in this view. Open the page in the Claude app or on claude.ai.";
-  if (c === "rate_limited") return "Claude is rate limited right now. Wait a minute, then upload again.";
-  if (c === "image_rejected") return "One of the frames was rejected. Try a shorter recording or screenshots.";
-  if (c === "invalid_json") return "Claude's answer couldn't be read. Upload again; a slower scroll through the board helps.";
-  if (c === "video_load") return "Your phone wouldn't open that video for reading. Try again; if it keeps happening, save the recording to Photos first, or take screenshots and upload those instead.";
+  if (c === "not_granted" || c === "sampling_disabled" || c === "capability_disabled") return "This page needs permission to use Claude. Allow it from the prompt or the artifact's Permissions menu, then try again.";
+  if (c === "images_unavailable") return "Reading screenshots isn't available in this view. Open the page in the Claude app or on claude.ai.";
+  if (c === "rate_limited") return "Claude is rate limited right now. Wait a minute, then tap Project again.";
+  if (c === "image_rejected") return "One of the screenshots was rejected. Try a different one.";
+  if (c === "invalid_json") return "Claude's answer couldn't be read. Tap Project again.";
+  if (c === "upstream_error") return "Claude's service had a hiccup. Tap Project again.";
   if (c === "cancelled") return "";
-  return "Something went wrong" + (e?.message ? ": " + e.message : "") + ". Try again.";
+  return "Something went wrong" + (e?.message ? ": " + e.message : "") + ".";
 }
-
-// One slice of frames -> one JSON reply. A reply that comes back cut off (too many props for one
-// answer) is asked again once as two smaller halves.
-async function readSlice(frames, i, depth = 0) {
-  const rec = { slice: i + 1, frames: frames.length, depth };
-  diag.slices.push(rec);
-  try {
-    const part = await sample.json(EXTRACT_PROMPT(i + 1, frames.length), { images: frames.map(f => f.blob), modelTier: "default", signal: ctl.signal });
-    rec.props = (part?.props || []).length; rec.players = (part?.players || []).length;
-    return part;
-  } catch (e) {
-    rec.error = e?.code || String(e?.message || e);
-    if (e?.code === "invalid_json") rec.raw = String(e.text || "").slice(0, 160);
-    if ((e?.code === "invalid_json" || e?.code === "empty_completion") && frames.length > 1 && depth === 0) {
-      const h = Math.ceil(frames.length / 2);
-      const a = await readSlice(frames.slice(0, h), i, 1).catch(() => null), b = await readSlice(frames.slice(h), i, 1).catch(() => null);
-      if (a || b) return { game: { ...(a?.game || {}), ...(b?.game || {}) }, players: [...(a?.players || []), ...(b?.players || [])], props: [...(a?.props || []), ...(b?.props || [])], last_player_header: b?.last_player_header || a?.last_player_header };
-    }
-    throw e;
-  }
-}
-
 function showDiag(open) {
   const lines = [
     `Prop analyzer report · ${new Date().toISOString()}`,
     `Device: ${navigator.userAgent}`,
-    `Files: ${(diag.files || []).join("; ")}`,
-    `Claude available: ${!!sample} · image limits: ${JSON.stringify(diag.limits || null)}`,
-    `Video: ${JSON.stringify(diag.video || null)}`,
-    `Screens pulled: ${diag.pulled ?? "-"} · sent: ${diag.sent ?? "-"}`,
-    ...(diag.slices || []).map(r => `  slice ${r.slice}${r.depth ? " (half)" : ""}: ${r.frames} frames -> ${r.error ? "ERROR " + r.error + (r.raw ? " | " + JSON.stringify(r.raw) : "") : r.props + " props, " + r.players + " players"}`),
-    `Research step: ${diag.research || "-"}`,
+    `Names: ${diag.names ?? "-"} · screenshots: ${diag.shots ?? 0}`,
+    `Box score: ${diag.box || "-"}`,
+    `Research: ${diag.research || "-"}`,
     `Result: ${diag.result || "-"}`,
     diag.error ? `Failed at "${diag.step}": ${diag.error}` : "",
   ].filter(Boolean);
@@ -1259,165 +1444,109 @@ $("#diagCopy").addEventListener("click", async () => {
   setTimeout(() => { $("#diagCopy").textContent = "Copy report"; }, 2500);
 });
 
-let job = null;
-// Read the given slices two at a time; failures are remembered so "Retry" can redo just those.
-async function readSlices(idx) {
-  const todo = [...idx]; let done = 0;
-  job.failedSlices = job.failedSlices.filter(i => !idx.includes(i));
-  setStep("read", "on", `Reading the stats and props · 0 of ${todo.length}`);
-  const worker = async () => {
-    while (todo.length && !ctl.signal.aborted) {
-      const i = todo.shift();
-      try { job.parts[i] = await readSlice(job.batches[i], i); }
-      catch (e) { if (e?.code === "cancelled" || e?.code === "not_granted") throw e; job.failedSlices.push(i); job.lastErr = e; }
-      setStep("read", "on", `Reading the stats and props · ${++done} of ${idx.length}`);
+async function readBox(files) {
+  const lim = await sample.limits().catch(() => null);
+  if (!lim?.images) throw { code: "images_unavailable" };
+  const per = Math.max(1, Math.min(lim.images.maxCount || 4, 4));
+  const blobs = []; for (const f of files) blobs.push(await shrink(f));
+  const parts = [];
+  for (let i = 0; i < blobs.length; i += per) {
+    setStep("read", "on", `Reading the box score · ${Math.min(i + per, blobs.length)} of ${blobs.length}`);
+    parts.push(await sample.json(BOX_PROMPT(Math.min(per, blobs.length - i)), { images: blobs.slice(i, i + per), modelTier: "default", signal: ctl.signal }));
+  }
+  // merge: later screenshots win for the game, stats take the max seen
+  const box = { game: {}, players: [] };
+  for (const b of parts) {
+    if (!b) continue;
+    for (const k of ["home", "away"]) if (b.game?.[k]) box.game[k] = { ...(box.game[k] || {}), ...Object.fromEntries(Object.entries(b.game[k]).filter(([, v]) => v !== null && v !== "")) };
+    for (const k of ["status", "quarter", "clock"]) if (b.game?.[k] != null && b.game[k] !== "") box.game[k] = b.game[k];
+    for (const p of b.players || []) {
+      if (!p?.name) continue;
+      let cur = matchByName(box.players, p.name);
+      if (!cur) { cur = { name: p.name, team: p.team, position: p.position, stats: {} }; box.players.push(cur); }
+      cur.team = cur.team || p.team; cur.position = cur.position || p.position;
+      for (const [k, v] of Object.entries(p.stats || {})) { const n = Number(v); if (v !== null && isFinite(n)) cur.stats[k] = Math.max(n, cur.stats[k] ?? -Infinity); }
     }
-  };
-  await Promise.all([worker(), worker()]);
-  if (ctl.signal.aborted) throw { code: "cancelled" };
+  }
+  return box;
 }
 
-// Season averages etc., six players per request so one failure can't sink the whole board.
-async function research(data, names) {
-  const chunks = []; for (let i = 0; i < names.length; i += 6) chunks.push(names.slice(i, i + 6));
-  if (!chunks.length) chunks.push([]);
-  let done = 0;
+async function research(entries, box) {
+  const chunks = []; for (let i = 0; i < entries.length; i += 6) chunks.push(entries.slice(i, i + 6));
+  let done = 0, failed = 0, err = null; const players = [];
   setStep("research", "on", `Checking season averages, matchups and injuries · 0 of ${chunks.length}`);
-  const todo = chunks.map((c, i) => [c, i]);
+  const todo = [...chunks];
   const worker = async () => {
     while (todo.length && !ctl.signal.aborted) {
-      const [c, i] = todo.shift();
-      const key = c.join("|");
-      try { job.research[key] = await sample.json(contextPrompt(data, c, i === 0), { modelTier: "complex", signal: ctl.signal }); job.researchFailed = job.researchFailed.filter(n => !c.includes(n)); }
-      catch (e) { if (e?.code === "cancelled") throw e; for (const n of c) if (!job.researchFailed.includes(n)) job.researchFailed.push(n); job.researchErr = e?.code || e?.message; }
+      const c = todo.shift();
+      try { const r = await sample.json(researchPrompt(c, box), { modelTier: "complex", signal: ctl.signal }); players.push(...(r?.players || [])); }
+      catch (e) { if (e?.code === "cancelled" || e?.code === "not_granted") throw e; failed += c.length; err = e?.code || e?.message; }
       setStep("research", "on", `Checking season averages, matchups and injuries · ${++done} of ${chunks.length}`);
     }
   };
   await Promise.all([worker(), worker()]);
+  return { players, failed, err };
 }
 
-async function finishJob(retry = false) {
-  // fill "continued" props with the player from the slice before
-  const parts = job.parts.map(p => p && JSON.parse(JSON.stringify(p)));
-  let header = null;
-  for (const part of parts) {
-    if (!part) continue;
-    for (const p of part.props || []) if (p && p.player === "^") p.player = header;
-    for (const p of part.props || []) if (p && p.player && p.player !== "^") header = p.player;
-    if (typeof part.last_player_header === "string" && part.last_player_header.trim()) header = part.last_player_header.trim();
-  }
-  if (parts.every(p => !p)) throw job.lastErr || { message: "none of the recording could be read" };
-  const data = mergeBatches(parts.filter(Boolean));
-  if (!data.props.length) throw { message: "no props were visible in the recording. Make sure the prop board is on screen for a second or two" };
-  const propPlayers = [...new Set([...data.props.map(p => p.player), ...data.players.filter(p => /QB|RB|WR|TE|HB|FB/i.test(p.position || "")).map(p => p.name)].filter(Boolean))];
-  const nf = job.failedSlices.length;
-  setStep("read", nf ? "fail" : "done", `Read ${data.props.length} props for ${propPlayers.length} players${nf ? ` · ${nf} of ${job.batches.length} parts failed` : ""}`);
-  // research: everyone not yet researched (or only the failed ones on a retry)
-  const have = new Set(Object.values(job.research).flatMap(r => (r?.players || []).map(p => normName(p.name))));
-  const need = propPlayers.filter(n => !have.has(normName(n)));
-  if (need.length || !Object.keys(job.research).length) await research(data, need);
-  const rs = Object.values(job.research).filter(Boolean);
-  data.context = { game: Object.assign({}, ...rs.map(r => r.game || {}).reverse()), players: rs.flatMap(r => r.players || []), other: rs.flatMap(r => r.other || []) };
-  const nr = job.researchFailed.length;
-  setStep("research", nr ? "fail" : "done", nr ? `Season averages missing for ${nr} of ${propPlayers.length} players (book lines used instead)` : `Checked ${propPlayers.length} players`);
-  diag.research = nr ? `missing ${nr}/${propPlayers.length}: ${job.researchErr}` : `ok, ${data.context.players.length} players`;
-  // calc
-  setStep("calc", "on"); await new Promise(r => setTimeout(r, 30));
-  lastData = data;
-  const result = projectPlayers(data);
-  setStep("calc", "done", `Projected ${result.players.length} players`);
-  render(data, result);
-  diag.result = `${result.players.length} players projected (${result.players.map(p => p.position).join(",")})`;
-  showDiag(false);
-  const rb = $("#retryBtn"), left = job.failedSlices.length + (job.researchFailed.length ? 1 : 0);
-  rb.hidden = !left; rb.textContent = `Retry the parts that failed (${job.failedSlices.length + job.researchFailed.length})`;
-  if (!retry) $("#head").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-}
-
-async function retryFailed() {
-  if (!job || !sample) return;
-  showErr(""); $("#retryBtn").disabled = true; $("#stopBtn").hidden = false; ctl = new AbortController();
-  try {
-    if (job.failedSlices.length) await readSlices([...job.failedSlices]);
-    // drop failed research so those players are asked again
-    await finishJob(true);
-  } catch (e) {
-    const on = $("#steps li.on"); if (on) on.className = "fail";
-    showErr(errText(e)); diag.error = (e?.code || "") + " " + (e?.message || ""); showDiag(true);
-  } finally { $("#retryBtn").disabled = false; $("#stopBtn").hidden = true; }
-}
-
-async function run(files) {
-  $("#retryBtn").hidden = true;
-  diag = { files: files.map(f => `${f.name} (${f.type || "?"}, ${(f.size / 1048576).toFixed(1)} MB)`), slices: [] };
-  showErr(""); $("#steps").hidden = false;
-  ["frames", "read", "research", "calc"].forEach(s => setStep(s, ""));
-  $("#pickBtn").setAttribute("aria-disabled", "true"); $("#file").disabled = true; $("#stopBtn").hidden = false;
-  ctl = new AbortController();
+async function go() {
+  showErr(""); $("#steps").hidden = false; ["read", "research", "calc"].forEach(s => setStep(s, ""));
+  const entries = parseNames($("#names").value);
+  try { localStorage.setItem("playerNames", $("#names").value); } catch {}
+  diag = { names: entries.map(e => e.name + (e.opp ? " vs " + e.opp : "")).join("; ") || "(none)", shots: shots.length };
+  $("#goBtn").disabled = true; $("#stopBtn").hidden = false; ctl = new AbortController();
   try {
     if (!sample) throw { code: "not_granted" };
-    const lim = await sample.limits().catch(() => null);
-    if (!lim?.images) throw { code: "images_unavailable" };
-    const perCall = Math.max(1, Math.min(lim.images.maxCount || 4, 4));
-    diag.limits = { maxImages: lim.images.maxCount, maxBytes: lim.images.maxInputBytes };
-    // 1. frames
-    setStep("frames", "on");
-    let frames = [];
-    for (const f of files) {
-      if (f.type.startsWith("video/") || /\.(mov|mp4|m4v|webm)$/i.test(f.name)) {
-        frames = frames.concat(await framesFromVideo(f, (x, n) => setStep("frames", "on", `Pulling frames from the recording · ${Math.round(x * 100)}% · ${n} unique screens`)));
-      } else if (f.type.startsWith("image/")) frames = frames.concat(await framesFromImage(f));
-      if (ctl.signal.aborted) throw { code: "cancelled" };
-    }
-    if (!frames.length) throw { message: "no frames could be read from that file" };
-    const MAX_BATCHES = 32, pulled = frames.length;
-    frames = pickEven(frames, perCall * MAX_BATCHES);
-    diag.pulled = pulled; diag.sent = frames.length;
-    setStep("frames", "done", pulled > frames.length ? `Pulled ${pulled} unique screens; reading ${frames.length} spread across the recording` : `Pulled ${frames.length} unique screens`);
-    // 2. read
-    const batches = []; for (let i = 0; i < frames.length; i += perCall) batches.push(frames.slice(i, i + perCall));
-    job = { batches, parts: new Array(batches.length), failedSlices: [], research: {}, researchFailed: [] };
-    await readSlices(batches.map((_, i) => i));
-    await finishJob();
+    if (!entries.length && !shots.length) throw { message: "type at least one player, or add box score screenshots" };
+    let box = null;
+    if (shots.length) {
+      setStep("read", "on");
+      box = await readBox(shots);
+      if (!box.players.length) throw { message: "no player stats could be read from those screenshots" };
+      setStep("read", "done", `Read ${box.players.length} players · ${box.game.away?.abbr || "?"} ${box.game.away?.score ?? ""} @ ${box.game.home?.abbr || "?"} ${box.game.home?.score ?? ""}`);
+      diag.box = `${box.players.length} players, ${JSON.stringify(box.game)}`;
+    } else setStep("read", "done", "No box score added · projecting from kickoff");
+    // research the typed players, or everyone in the box score if none were typed
+    const targets = entries.length ? entries : box.players.filter(p => /QB|RB|WR|TE|HB|FB/i.test(p.position || "")).map(p => ({ name: p.name }));
+    const R = await research(targets, box);
+    setStep("research", R.failed ? "fail" : "done", R.failed ? `Season averages missing for ${R.failed} of ${targets.length} players (${R.err})` : `Checked ${targets.length} players`);
+    diag.research = R.failed ? `missing ${R.failed}/${targets.length}: ${R.err}` : `ok, ${R.players.length} players`;
+    setStep("calc", "on"); await new Promise(r => setTimeout(r, 30));
+    const players = projectRoster(targets, box, { players: R.players });
+    last = { targets, box, research: { players: R.players } };
+    setStep("calc", "done", `Projected ${players.filter(p => !p.missing).length} players`);
+    render(players, box, false);
+    diag.result = players.map(p => `${p.name} ${p.position || "?"} ${p.missing ? "missing" : Math.round(p.conf)}`).join("; ");
+    showDiag(false);
+    $("#head").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   } catch (e) {
     const on = $("#steps li.on"); if (on) on.className = "fail";
     diag.step = on?.textContent || "?"; diag.error = (e?.code || "") + " " + (e?.message || "");
     const msg = errText(e);
     showErr(msg ? msg + " If it keeps failing, tap Copy report below and send it to me." : "");
     showDiag(true);
-  } finally {
-    $("#pickBtn").removeAttribute("aria-disabled"); $("#file").disabled = false; $("#stopBtn").hidden = true; $("#file").value = "";
-  }
+  } finally { $("#goBtn").disabled = false; $("#stopBtn").hidden = true; }
 }
-
-$("#file").addEventListener("change", e => { const fs = [...e.target.files]; if (!fs.length) return; $("#fileName").textContent = fs.map(f => f.name).join(", "); run(fs); });
+$("#form").addEventListener("submit", e => { e.preventDefault(); go(); });
 $("#stopBtn").addEventListener("click", () => ctl?.abort());
-$("#retryBtn").addEventListener("click", retryFailed);
-const drop = $("#drop");
-drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
-drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
-drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); const fs = [...e.dataTransfer.files]; if (fs.length && !$("#file").disabled) { $("#fileName").textContent = fs.map(f => f.name).join(", "); run(fs); } });
 
-// defense list: the user's last saved copy, else the one shipped with the page
+/* ---------- defense list ---------- */
 let defText = $("#defense-data").textContent.trim();
 try { const saved = localStorage.getItem("defenseRankings"); if (saved && Object.keys(parseDefense(saved)).length) defText = saved; } catch {}
 $("#defText").value = defText;
 function applyDefense(text) { const d = parseDefense(text); setDefense(d); $("#defStatus").textContent = Object.keys(d).length ? `Using ${Object.keys(d).length} teams` : "Couldn't read that list; check the format"; return Object.keys(d).length; }
 applyDefense(defText);
-let lastData = null;
+const example = JSON.parse($("#example-data").textContent);
+function showExample() { render(projectRoster(example.names, example.box, example.research), example.box, true); }
 $("#defSave").addEventListener("click", () => {
   const t = $("#defText").value;
   if (!applyDefense(t)) return;
   try { localStorage.setItem("defenseRankings", t); } catch {}
-  const d = lastData || example; render(d, projectPlayers(d));
+  if (last) render(projectRoster(last.targets, last.box, last.research), last.box, false); else showExample();
 });
 
-// example board on load, so the page shows what it does
-const example = JSON.parse($("#example-data").textContent);
-render(example, projectPlayers(example));
-
+showExample();
 (async () => {
   try { sample = await window.claude?.use?.("sample"); } catch { sample = null; }
-  if (!sample) { $("#hint").textContent = "Reading a recording needs Claude. Open this page on claude.ai or in the Claude app."; }
+  if (!sample) $("#hint").textContent = "Projecting needs Claude. Open this page on claude.ai or in the Claude app.";
 })();
 </script>

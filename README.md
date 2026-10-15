@@ -132,87 +132,37 @@ on where the league is in its rollover. Pass `--season-type preseason`
 
 ---
 
-## Analyze a screen recording
+## Player projections page
 
-`docs/prop-analyzer.html` is a standalone page built for phones. It now
-outputs **projected final stat lines** rather than prop hit rates. The stats
-projected depend on position:
+`docs/prop-analyzer.html` is a standalone page built for phones.
+
+**Input:**
+- **Player names:** type them one per line. Add `vs SF` to a line to set
+  the opponent yourself.
+- **Box score (optional, for halftime):** add screenshots of the box score.
+  With screenshots and no names, every QB, RB, WR and TE in the box score is
+  projected.
+
+**Output:** each player gets a **1st-half** and a **full-game** projection:
 
 - **QB:** passing yards, attempts and completions, plus rushing yards and
   attempts.
 - **RB:** rushing yards and attempts, plus receptions and receiving yards.
 - **WR and TE:** receptions and receiving yards.
 
-Each projection is the median of the simulation, shown with an 80% range
-(10th to 90th percentile). Players are sorted by confidence. Confidence is
-high when the range is tight relative to the projection, and it is
-discounted when the baseline comes from book lines or position defaults
-instead of season averages, and when the player has injury risk. Lines and
-last-5 numbers read from the recording still feed the baseline and recent
-form.
+Each projection is the median of a 20,000-run simulation, shown with an 80%
+range. At halftime the 1st-half column shows the actual box-score numbers,
+and the full-game projection builds on them. Players and stats are sorted
+by confidence: a tight range relative to the projection, with discounts
+when no season average is found or the player has injury risk.
 
-The rest of this section describes the original prop mode. Upload a
-screen recording, or screenshots, that shows the live box score and the prop
-board. The page returns one hit percentage per prop, sorted from most to least
-likely.
-
-1. **Frames.** The page decodes the video in the browser and samples it about
-   three times a second. It keeps only frames that differ visibly from the
-   last one it kept, so a slow scroll becomes a short set of distinct screens.
-2. **Reading.** Claude reads those frames for the score, the clock, every
-   player's stats, and every prop with its odds. Both sides of a market are
-   kept, and a market seen in several frames is counted once.
-   The small numbers many boards show under a prop, the player's results in
-   recent games, are read as last-5 results for that stat. They are never
-   treated as live stats or odds.
-3. **Context.** A second Claude call adds season per-game averages,
-   opponent-strength multipliers, the chance each player finishes the game,
-   weather, and the pregame spread and total.
-4. **Probability.** A 20,000-run simulation of the rest of the game is run in
-   the browser for each stat. The current pace is regressed toward the season
-   average, and the volume is adjusted for game script, blowout risk, the
-   opponent, weather and recent form. Each projection accounts for:
-   game script (the live lead plus the drift implied by the spread, so
-   pregame lines lean too), blowout benching, offensive pace, target and
-   carry share including bumps when a teammate is out, opponent yards
-   allowed combined with the scheme fit (shadow corners, slot funnels),
-   availability and playing-hurt efficiency, wind and rain for passing,
-   kicking and big plays, the referee crew, each player's reliance on big
-   plays, and a per-simulation in-game adjustment shock. Recent form is the last-5 average
-   against the season average, shrunk toward neutral and capped at ±30%. Yardage is simulated touch by touch, so the "longest"
-   markets work too. The result is then blended with the book's no-vig price,
-   weighted 65% model and 35% market.
-
-**Defense rankings.** The page ships with a table of yards allowed by each
-team, split into pass and run. Every player prop is adjusted by the opposing
-defense: pass yards and receiving yards by pass yards allowed, completions,
-receptions and targets by the square root of that adjustment, and rushing
-yards by run yards allowed. Each team's figure is compared with the league
-average and pulled halfway back toward it, then capped at ±18%. When the
-recording has no pregame total, total yards allowed also adjusts each team's
-expected scoring. Paste an updated list into the "Defense rankings" box at
-the bottom of the page and the board recalculates. The new list is kept in
-that browser.
-
-Results come in two sections, each ranked from most to least likely:
-
-- **Pregame** lists the 1st-half lines, judged as of kickoff from season
-  averages, matchup and pregame spread and total, with no live stats. Each
-  line also shows a projected stat, the median simulated outcome, which is a
-  realistic guess at what the player will actually finish with. If the
-  recording was taken at halftime, each line also shows what actually
-  happened in the first half. When the game hasn't started yet, every line
-  goes in this section.
-- **Halftime** lists full-game and 2nd-half lines, judged from the
-  current score and stats as described above.
-
-Props that have already cashed or lost are left out of the ranking and listed
-separately. Tap a prop to see what drove its number. When no recording has
-been loaded, the page shows a clearly labelled example game.
-
-The page reads the recording through its built-in Claude access, so it has to
-be opened on claude.ai or in the Claude app. Opened as a local file, it shows
-only the example board.
+**How it gets there:** Claude reads the screenshots. A second Claude step
+looks up each player's team, opponent, spread and total, season averages,
+usage changes, injuries, scheme fit, pace, weather and referee crew, six
+players per request. The simulation then applies game script, blowout
+risk, the yards-allowed defense table (editable on the page), and a
+per-game adjustment shock. The page has to be opened on claude.ai or in the
+Claude app.
 
 ---
 
