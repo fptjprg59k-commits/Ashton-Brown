@@ -134,7 +134,24 @@ on where the league is in its rollover. Pass `--season-type preseason`
 
 ## Analyze a screen recording
 
-`docs/prop-analyzer.html` is a standalone page built for phones. Upload a
+`docs/prop-analyzer.html` is a standalone page built for phones. It now
+outputs **projected final stat lines** rather than prop hit rates. The stats
+projected depend on position:
+
+- **QB:** passing yards, attempts and completions, plus rushing yards and
+  attempts.
+- **RB:** rushing yards and attempts, plus receptions and receiving yards.
+- **WR and TE:** receptions and receiving yards.
+
+Each projection is the median of the simulation, shown with an 80% range
+(10th to 90th percentile). Players are sorted by confidence. Confidence is
+high when the range is tight relative to the projection, and it is
+discounted when the baseline comes from book lines or position defaults
+instead of season averages, and when the player has injury risk. Lines and
+last-5 numbers read from the recording still feed the baseline and recent
+form.
+
+The rest of this section describes the original prop mode. Upload a
 screen recording, or screenshots, that shows the live box score and the prop
 board. The page returns one hit percentage per prop, sorted from most to least
 likely.

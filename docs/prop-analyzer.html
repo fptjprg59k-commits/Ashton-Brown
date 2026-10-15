@@ -130,6 +130,21 @@ header p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
 .res { font: 600 11px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; border-radius: 6px; padding: 4px 7px; }
 .res.ok { background: var(--hi-soft); color: var(--hi); }
 .res.no { background: var(--lo-soft); color: var(--lo); }
+.prop.player { display: flex; flex-direction: column; gap: 8px; }
+.phead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.phead .pname { font-weight: 600; font-size: 16px; }
+.pmeta { color: var(--muted); font-size: 13px; }
+.cbadge { margin-left: auto; font: 600 11px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; border-radius: 6px; padding: 5px 7px; }
+.cbadge.hi { background: var(--hi-soft); color: var(--hi); } .cbadge.mid { background: var(--mid-soft); color: var(--mid); } .cbadge.lo { background: var(--lo-soft); color: var(--lo); }
+.stats { display: flex; flex-direction: column; }
+.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "lab val" "rng conf"; gap: 0 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+.slab { grid-area: lab; color: var(--muted); font-size: 14px; }
+.sval { grid-area: val; text-align: right; font: 700 1.5rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.srng { grid-area: rng; color: var(--muted); font: 500 12px/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+.sconf { grid-area: conf; justify-self: end; font: 600 11px/1 var(--mono); border-radius: 5px; padding: 3px 6px; }
+.sconf.hi { background: var(--hi-soft); color: var(--hi); } .sconf.mid { background: var(--mid-soft); color: var(--mid); } .sconf.lo { background: var(--lo-soft); color: var(--lo); }
+.player .why { margin-top: 0; }
+.player .why ul { gap: 6px; }
 details.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
 details.box summary { cursor: pointer; font-weight: 600; }
 #diagText { white-space: pre-wrap; overflow-wrap: anywhere; font: 500 11.5px/1.45 var(--mono); color: var(--muted); margin: 10px 0; max-height: 260px; overflow: auto; }
@@ -147,7 +162,7 @@ h2 { font: 700 1.3rem/1.1 var(--display); text-transform: uppercase; letter-spac
 <div class="wrap">
   <header>
     <h1>Halftime Prop Analyzer</h1>
-    <p>Upload a screen recording that shows the live stats and the prop board. Every prop gets one number: the chance it hits, ranked from most to least likely. First-half lines are judged as of kickoff, with a projected stat for each; halftime lines are judged from where the game stands now.</p>
+    <p>Upload a screen recording of the box score and the players' prop pages. Every QB, RB, WR and TE gets a projected final stat line, with the most confident projections first.</p>
   </header>
 
   <section class="upload" id="drop">
@@ -162,7 +177,7 @@ h2 { font: 700 1.3rem/1.1 var(--display); text-transform: uppercase; letter-spac
       <li data-s="frames">Pulling frames from the recording</li>
       <li data-s="read">Reading the stats and props</li>
       <li data-s="research">Checking season averages, matchups and injuries</li>
-      <li data-s="calc">Simulating the game</li>
+      <li data-s="calc">Projecting every player</li>
     </ol>
     <div class="err" id="err" hidden></div>
     <button class="btn" id="retryBtn" type="button" hidden>Retry the parts that failed</button>
@@ -200,8 +215,9 @@ const MARKETS = {
 };
 // how each counted stat behaves: count dispersion k (Infinity = Poisson), touch stat + yards per touch for yardage
 const STAT = {
-  pass_att: { k: 14, flow: "pass" }, pass_cmp: { k: 14, flow: "pass" }, rec: { k: 6, flow: "pass" },
-  targets: { k: 6, flow: "pass" }, rush_att: { k: 6, flow: "rush" },
+  // dispersion tuned to NFL game-to-game spread (QB completions sd ~5, WR catches ~2.3, RB carries ~5)
+  pass_att: { k: 40, flow: "pass" }, pass_cmp: { k: 40, flow: "pass" }, rec: { k: 10, flow: "pass" },
+  targets: { k: 10, flow: "pass" }, rush_att: { k: 15, flow: "rush" },
   pass_td: { k: Infinity, flow: "pass", rare: true }, int: { k: Infinity, flow: "pass", rare: true },
   rush_td: { k: Infinity, flow: "rush", rare: true }, rec_td: { k: Infinity, flow: "pass", rare: true },
   tackles: { k: 5, flow: "none" }, sacks: { k: Infinity, flow: "none", rare: true },
@@ -668,7 +684,7 @@ function addPlayerReasons(res, m, pri, key) {
   if (m.blow < 0.97) res.reasons.push(`Blowout risk could sit starters late: ${pctText(m.blow - 1)}`);
   if (m.defInfo) res.reasons.push(`${m.defInfo.name} ${m.defInfo.kind} D ranks #${m.defInfo.rank} (${m.defInfo.yds.toLocaleString()} yds allowed): ${Math.abs(m.defInfo.base - 1) < 0.01 ? "about average" : pctText(m.defInfo.base - 1)}`);
   if (Math.abs(m.scheme - 1) >= 0.03) res.reasons.push(`Scheme/coverage matchup: ${pctText(m.scheme - 1)}`);
-  else if (Math.abs(m.def - 1) >= 0.03) res.reasons.push(`Opponent matchup: ${pctText(m.def - 1)}`);
+  else if (!m.defInfo && Math.abs(m.def - 1) >= 0.03) res.reasons.push(`Opponent matchup: ${pctText(m.def - 1)}`);
   if (Math.abs(m.env - 1) >= 0.03) res.reasons.push(`Weather: ${pctText(m.env - 1)} ${key === "fg_made" ? "kicking" : "passing"}`);
   if (m.bigPlay >= 0.68) res.reasons.push("Big-play reliant: boom-or-bust, wide range of outcomes");
   else if (m.bigPlay <= 0.32) res.reasons.push("Volume/possession profile: steady, narrow range of outcomes");
@@ -759,7 +775,68 @@ function analyzeAll(data, N = 20000) {
   pregame.sort((a, b) => b.p - a.p);
   return { ctx, live, settled, pregame, unnamed };
 }
-if (typeof module !== "undefined") module.exports = { analyzeAll, gameClock, implied, marketProb, parseDefense, setDefense };
+// ---------- player stat projections (full game), ranked by confidence ----------
+const PROJ_STATS = {
+  QB: ["pass_yds", "pass_att", "pass_cmp", "rush_yds", "rush_att"],
+  RB: ["rush_yds", "rush_att", "rec", "rec_yds"],
+  WR: ["rec", "rec_yds"], TE: ["rec", "rec_yds"],
+};
+function pct(sorted, q) { return sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(q * sorted.length)))]; }
+function skillPlayers(data, ctx) {
+  const map = new Map();
+  const add = (name, team, position, stats) => {
+    if (!name) return; const k = normName(name);
+    const cur = map.get(k) || { name, team: null, position: null, stats: {} };
+    cur.team = cur.team || team || null; cur.position = cur.position || position || null;
+    Object.assign(cur.stats, stats || {}); map.set(k, cur);
+  };
+  for (const p of data.players || []) add(p.name, p.team, p.position, p.stats);
+  for (const p of data.props || []) if (p.player) add(p.player, p.team, null, null);
+  for (const p of data.context?.players || []) if (map.has(normName(p.name))) add(p.name, p.team, p.position, null);
+  const out = [];
+  for (const [k, p] of map) {
+    let pos = String(p.position || ctx.posGuess?.[k] || "").toUpperCase().replace(/[^A-Z]/g, "");
+    if (pos === "HB" || pos === "FB") pos = "RB";
+    if (!PROJ_STATS[pos]) continue;
+    out.push({ ...p, position: pos });
+  }
+  return out;
+}
+function projectPlayers(data, N = 20000) {
+  normalizeProps(data);
+  const ctx = buildContext(data), cache = {};
+  const players = [];
+  for (const pl of skillPlayers(data, ctx)) {
+    const pri = ctx.priorByName[normName(pl.name)] || {};
+    const rows = [];
+    for (const key of PROJ_STATS[pl.position]) {
+      // the book's full-game last-5 for this stat (if shown) still feeds recent form
+      const l5prop = (data.props || []).find(p => p.player && normName(p.player) === normName(pl.name) && p.market_key === key && scopeOf(p) === "full_game" && Array.isArray(p.last5));
+      const rf = l5prop ? recentForm(ctx, pl, [[key, 1]], "full_game", l5prop, Number(l5prop.line), false) : { mult: 1 };
+      const sim = simStat(ctx, pl, key, "full_game", N, cache, rf.mult);
+      const cur = sim.m.cur, vals = Float64Array.from(sim.tot, v => v + cur).sort();
+      const med = pct(vals, 0.5), lo = pct(vals, 0.1), hi = pct(vals, 0.9);
+      let mean = 0; for (const v of vals) mean += v; mean /= vals.length;
+      // confidence: how tight the likely range is, discounted for thin data and health risk
+      const width = (hi - lo) / Math.max(mean, STAT[key]?.yards ? 15 : 2.5);
+      const quality = { season: 1, derived: 0.92, line: 0.82, fallback: 0.55 }[sim.m.priorSource] ?? 0.8;
+      const conf = clamp(100 * Math.exp(-0.5 * width) * quality * (0.6 + 0.4 * sim.m.avail), 1, 99);
+      const res = { reasons: [] };
+      addPlayerReasons(res, sim.m, pri, key);
+      if (rf.text) res.reasons.unshift(rf.text);
+      if (sim.m.priorSource === "line") res.reasons.unshift("No season average available; the book's lines and last-5 set the baseline");
+      if (sim.m.priorSource === "fallback") res.reasons.unshift("No season average or line found; a position default was used");
+      rows.push({ key, label: MARKETS[key], cur, med, mean, lo, hi, conf, yards: !!STAT[key]?.yards, reasons: res.reasons });
+    }
+    rows.sort((a, b) => b.conf - a.conf);
+    const conf = rows.reduce((s, r) => s + r.conf, 0) / rows.length;
+    players.push({ name: pl.name, team: pl.team, position: pl.position, rows, conf, note: pri.note });
+  }
+  players.sort((a, b) => b.conf - a.conf);
+  return { ctx, players };
+}
+
+if (typeof module !== "undefined") module.exports = { analyzeAll, projectPlayers, gameClock, implied, marketProb, parseDefense, setDefense };
 </script>
 
 <script id="defense-data" type="text/plain">
@@ -900,32 +977,47 @@ function propRow(r, i, isPre) {
 }
 function tone(p) { return p >= 0.7 ? "hi" : p >= 0.5 ? "mid" : "lo"; }
 
+function confLabel(c) { return c >= 60 ? ["hi", "High"] : c >= 40 ? ["mid", "Medium"] : ["lo", "Low"]; }
+function num(v, yards) { return yards || v >= 10 ? Math.round(v).toString() : (Math.round(v * 10) / 10).toString(); }
 function render(data, result) {
   const g = data.game || {}, h = g.home || {}, a = g.away || {};
   teamNames = {}; for (const t of [h, a]) if (t.abbr && t.name) teamNames[String(t.abbr).toUpperCase()] = t.name;
-  const st = /half/i.test(g.status || "") ? "Halftime" : g.status || (g.quarter ? `Q${g.quarter}` : "");
-  const c = result.ctx;
+  const c = result.ctx, live = c.elapsed > 0;
+  const st = c.elapsed === 0 ? "Pregame" : /half/i.test(g.status || "") ? "Halftime" : g.status || (g.quarter ? `Q${g.quarter}` : "");
   $("#head").innerHTML = `
     ${data.example ? '<span class="tag">Example game · upload your recording to analyze yours</span>' : ""}
     <div class="score">
-      <div class="team"><span class="ab">${esc(a.abbr || "AWAY")}</span><span class="pts">${esc(a.score ?? "")}</span></div>
-      <div class="clock"><b>${esc(st)}</b>${/half/i.test(st) ? "" : esc(g.clock || "")}<br>${Math.round(c.remaining)} min left</div>
-      <div class="team r"><span class="ab">${esc(h.abbr || "HOME")}</span><span class="pts">${esc(h.score ?? "")}</span></div>
+      <div class="team"><span class="ab">${esc(a.abbr || "AWAY")}</span><span class="pts">${esc(a.score ?? "–")}</span></div>
+      <div class="clock"><b>${esc(st)}</b>${live && !/half/i.test(st) ? esc(g.clock || "") + "<br>" : ""}${live ? Math.round(c.remaining) + " min left" : "projections for the full game"}</div>
+      <div class="team r"><span class="ab">${esc(h.abbr || "HOME")}</span><span class="pts">${esc(h.score ?? "–")}</span></div>
     </div>
-    <div class="meta">${result.pregame.length ? result.pregame.length + " pregame · " : ""}${result.live.length} live props ranked${result.settled.length ? ` · ${result.settled.length} already decided` : ""}${c.weather ? " · " + esc(c.weather) : ""}</div>`;
+    <div class="meta">${result.players.length} players · most confident first${c.weather ? " · " + esc(c.weather) : ""}</div>`;
 
-  const pre = result.pregame, live = result.live;
-  $("#preSec").innerHTML = pre.length ? `<div class="sec-h"><h2>Pregame</h2><span>1st-half &amp; 1st-quarter lines · judged as of kickoff</span></div>
-    <div class="list">${pre.map((r, i) => propRow(r, i, true)).join("")}</div>` : "";
-  $("#liveSec").innerHTML = live.length || !pre.length ? `<div class="sec-h"><h2>Halftime</h2><span>judged from the current score and stats</span></div>
-    <div class="list">${live.map((r, i) => propRow(r, i, false)).join("") || '<p class="hint">No props were found. Try a recording that shows the prop board more slowly.</p>'}</div>` : "";
+  $("#preSec").innerHTML = "";
+  $("#liveSec").innerHTML = `<div class="sec-h"><h2>Projected stats</h2><span>final game totals · tap a player for the why</span></div>
+    <div class="list">${result.players.map((p, i) => playerCard(p, i, live)).join("") || '<p class="hint">No QBs, RBs, WRs or TEs were found in the recording.</p>'}</div>`;
+  $("#settled").innerHTML = "";
 
-  const un = result.unnamed || [];
-  const unBox = un.length ? `<details class="box" open><summary>Not ranked: no player name (${un.length})</summary><p class="hint">The recording showed these lines without saying whose they are, so they can't be projected. Record again with the player's name on screen while his props scroll by.</p><div class="tbl"><table><tr><th>Market</th><th>Line</th><th>Odds</th></tr>${un.map(p => `<tr><td>${esc(p.market || MARKETS[p.market_key])}</td><td>${esc((p.side === "under" ? "U " : p.side === "over" ? "O " : "") + (p.line ?? ""))}</td><td>${esc(oddsText(p.odds))}</td></tr>`).join("")}</table></div></details>` : "";
-  $("#settled").innerHTML = unBox + (result.settled.length ? `<details class="box"><summary>Already decided (${result.settled.length})</summary><div class="tbl"><table><tr><th>Prop</th><th>Result</th></tr>${result.settled.map(r => { const t = propTitle(r); return `<tr><td>${esc(t.who)} · ${esc(t.what)}</td><td>${r.settled === "hit" ? "Hit" : "Lost"}</td></tr>`; }).join("")}</table></div></details>` : "");
-
-  const cols = ["pass_yds", "pass_att", "pass_cmp", "pass_td", "rush_att", "rush_yds", "rush_td", "rec", "rec_yds", "rec_td"];
+  const cols = ["pass_yds", "pass_att", "pass_cmp", "rush_att", "rush_yds", "rec", "rec_yds"];
   $("#readout").innerHTML = (data.players || []).length ? `<details class="box"><summary>What it read from the recording</summary><div class="tbl"><table><tr><th>Player</th><th>Tm</th>${cols.map(k => `<th>${esc(k.replace("_", " "))}</th>`).join("")}</tr>${data.players.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.team)}</td>${cols.map(k => `<td>${p.stats?.[k] ?? ""}</td>`).join("")}</tr>`).join("")}</table></div></details>` : "";
+}
+function playerCard(p, i, live) {
+  const [tone, word] = confLabel(p.conf);
+  const rows = p.rows.map(r => {
+    const [t] = confLabel(r.conf);
+    return `<div class="srow">
+      <span class="slab">${esc(r.label)}</span>
+      <span class="sval">${num(r.med, r.yards)}</span>
+      <span class="srng">${num(r.lo, r.yards)}–${num(r.hi, r.yards)}${live ? ` · has ${num(r.cur, r.yards)}` : ""}</span>
+      <span class="sconf ${t}" title="confidence">${Math.round(r.conf)}</span>
+    </div>`;
+  }).join("");
+  const why = p.rows.map(r => `<li><b>${esc(r.label)}:</b> ${esc(r.reasons.join(" · ") || "season average, no adjustments")}</li>`).join("");
+  return `<article class="prop player" tabindex="0" aria-expanded="false">
+    <div class="phead"><span class="rank">${i + 1}</span><span class="pname">${esc(p.name)}</span><span class="pmeta">${esc([p.team, p.position].filter(Boolean).join(" · "))}</span><span class="cbadge ${tone}">${word} · ${Math.round(p.conf)}</span></div>
+    <div class="stats">${rows}</div>
+    <div class="why" hidden>${p.note ? `<p>${esc(p.note)}</p>` : ""}<ul>${why}</ul></div>
+  </article>`;
 }
 
 for (const id of ["#preSec", "#liveSec"]) {
@@ -1085,16 +1177,17 @@ function contextPrompt(d, only, withOthers = true) {
   const recent = {}; d.props.filter(p => p.player && Array.isArray(p.last5)).forEach(p => { ((recent[p.player] = recent[p.player] || {})[p.market_key + (p.scope === "first_half" ? "_1h" : "")] = p.last5); });
   const others = (withOthers ? d.props : []).filter(p => p.market_key === "other").map(p => ({ id: p.id, player: p.player, team: p.team, market: p.market, side: p.side, line: p.line, odds: p.odds }));
   return `You are an NFL analyst. A live game: ${JSON.stringify(d.game)}.
-Players with props, their stats so far, and the markets offered:
+Players (with any stats so far, and the prop markets the book offered for them):
 ${JSON.stringify(roster.map(r => ({ ...r, markets: [...(markets[r.name] || [])], last5_from_book: recent[r.name] || undefined })))}
 ${others.length ? "Unusual markets to estimate directly:\n" + JSON.stringify(others) : ""}
 
 Using everything you know (this season's per-game averages through your latest knowledge, target/carry/red-zone share, injuries to the player and his teammates, the opponent's scheme, weather and venue, each team's pace, the referee crew, coaching tendencies), reply with only this JSON:
 {"game":{"pregame_spread_home":-3.5,"pregame_total":47.5,"weather":"short text or empty","pass_env_mult":1.0,"big_play_env":1.0,"kick_env":1.0,"pace_mult_home":1.0,"pace_mult_away":1.0,"ref_mult":1.0},
- "players":[{"name":"exact name from the list","per_game":{"<stat>":number},"scheme_mult":{"<stat>":number},"usage_mult":1.0,"availability":1.0,"effectiveness":1.0,"big_play":0.5,"note":"one short sentence, only if it matters"}],
+ "players":[{"name":"exact name from the list","position":"RB","team":"ATL","per_game":{"<stat>":number},"scheme_mult":{"<stat>":number},"usage_mult":1.0,"availability":1.0,"effectiveness":1.0,"big_play":0.5,"note":"one short sentence, only if it matters"}],
  "other":[{"id":"p12","p":0.55,"why":"one short sentence"}]}
 
-Stat keys for per_game: pass_att, pass_cmp, pass_yds, pass_td, int, rush_att, rush_yds, rush_td, targets, rec, rec_yds, rec_td, tackles, sacks, fg_made, xp_made. For each player give per-game averages for every stat behind their markets (Rush + Rec Yds needs rush_yds and rec_yds; Anytime TD needs rush_td and rec_td; Longest Reception needs rec and rec_yds; yardage markets also need the matching touch stat: pass_cmp, rush_att or rec).
+For every player also give "position" (QB, RB, WR, TE, K, or DEF) and "team" (abbreviation). Per-game averages always needed by position: QB -> pass_yds, pass_att, pass_cmp, pass_td, rush_yds, rush_att; RB -> rush_yds, rush_att, rush_td, targets, rec, rec_yds; WR/TE -> targets, rec, rec_yds, rec_td.
+Stat keys for per_game: pass_att, pass_cmp, pass_yds, pass_td, int, rush_att, rush_yds, rush_td, targets, rec, rec_yds, rec_td, tackles, sacks, fg_made, xp_made. Also give per-game averages for every stat behind their markets (Rush + Rec Yds needs rush_yds and rec_yds; Anytime TD needs rush_td and rec_td; Longest Reception needs rec and rec_yds; yardage markets also need the matching touch stat: pass_cmp, rush_att or rec).
 scheme_mult: how this defense's scheme fits THIS player beyond raw yards allowed (yards-allowed ranks are applied separately): shadow corner on a WR1 ~0.88, a defense that funnels targets to the slot/TE/RB ~1.10, two-high shell vs a deep threat ~0.92; also TDs/sacks/INTs/tackles matchups. Omit if neutral.
 usage_mult: change in this player's target/carry share vs his season average from teammates out or returning, or a role change (WR1 out -> WR2 ~1.15; RB back from injury splitting work ~0.85). 1.0 if nothing changed.
 availability: probability the player finishes the game (lower for a questionable tag or an in-game injury).
@@ -1216,7 +1309,7 @@ async function finishJob(retry = false) {
   if (parts.every(p => !p)) throw job.lastErr || { message: "none of the recording could be read" };
   const data = mergeBatches(parts.filter(Boolean));
   if (!data.props.length) throw { message: "no props were visible in the recording. Make sure the prop board is on screen for a second or two" };
-  const propPlayers = [...new Set(data.props.map(p => p.player).filter(Boolean))];
+  const propPlayers = [...new Set([...data.props.map(p => p.player), ...data.players.filter(p => /QB|RB|WR|TE|HB|FB/i.test(p.position || "")).map(p => p.name)].filter(Boolean))];
   const nf = job.failedSlices.length;
   setStep("read", nf ? "fail" : "done", `Read ${data.props.length} props for ${propPlayers.length} players${nf ? ` · ${nf} of ${job.batches.length} parts failed` : ""}`);
   // research: everyone not yet researched (or only the failed ones on a retry)
@@ -1231,10 +1324,10 @@ async function finishJob(retry = false) {
   // calc
   setStep("calc", "on"); await new Promise(r => setTimeout(r, 30));
   lastData = data;
-  const result = analyzeAll(data);
-  setStep("calc", "done", `Ranked ${result.pregame.length + result.live.length} props`);
+  const result = projectPlayers(data);
+  setStep("calc", "done", `Projected ${result.players.length} players`);
   render(data, result);
-  diag.result = `${result.pregame.length} pregame, ${result.live.length} halftime, ${result.settled.length} decided, ${(result.unnamed || []).length} unnamed`;
+  diag.result = `${result.players.length} players projected (${result.players.map(p => p.position).join(",")})`;
   showDiag(false);
   const rb = $("#retryBtn"), left = job.failedSlices.length + (job.researchFailed.length ? 1 : 0);
   rb.hidden = !left; rb.textContent = `Retry the parts that failed (${job.failedSlices.length + job.researchFailed.length})`;
@@ -1316,12 +1409,12 @@ $("#defSave").addEventListener("click", () => {
   const t = $("#defText").value;
   if (!applyDefense(t)) return;
   try { localStorage.setItem("defenseRankings", t); } catch {}
-  const d = lastData || example; render(d, analyzeAll(d));
+  const d = lastData || example; render(d, projectPlayers(d));
 });
 
 // example board on load, so the page shows what it does
 const example = JSON.parse($("#example-data").textContent);
-render(example, analyzeAll(example));
+render(example, projectPlayers(example));
 
 (async () => {
   try { sample = await window.claude?.use?.("sample"); } catch { sample = null; }
