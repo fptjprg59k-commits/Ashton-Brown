@@ -866,25 +866,71 @@ function toBlob(src, w, h) {
   c.width = Math.round(w * k); c.height = Math.round(h * k); c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
   return new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
 }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function until(test, ms) { const t0 = Date.now(); while (!test()) { if (Date.now() - t0 > ms) return false; await sleep(100); } return true; }
+// iPhones won't load a video that is off the page or has never played, so the player sits
+// on the page (invisible) and is started muted before any frame is read.
+async function openVideo(file) {
+  const v = document.createElement("video");
+  v.muted = true; v.defaultMuted = true; v.playsInline = true; v.preload = "auto";
+  v.setAttribute("muted", ""); v.setAttribute("playsinline", ""); v.setAttribute("webkit-playsinline", "");
+  Object.assign(v.style, { position: "fixed", left: "0", top: "0", width: "2px", height: "2px", opacity: "0.01", pointerEvents: "none", zIndex: "-1" });
+  document.body.appendChild(v);
+  const url = URL.createObjectURL(file);
+  v.src = url; v.load();
+  const close = () => { try { v.pause(); } catch {} v.removeAttribute("src"); v.load(); v.remove(); URL.revokeObjectURL(url); };
+  if (!(await until(() => v.readyState >= 1, 20000))) { close(); throw { code: "video_load" }; }
+  try { await v.play(); } catch {}
+  const ok = await until(() => v.readyState >= 2 && v.videoWidth > 0, 20000);
+  try { v.pause(); } catch {}
+  if (!ok) { close(); throw { code: "video_load" }; }
+  return { v, close };
+}
+// Seek and wait for the new frame to be decoded; false if the browser never gets there.
+async function seekTo(v, t) {
+  if (Math.abs(v.currentTime - t) < 0.01 && v.readyState >= 2) return true;
+  const done = new Promise(res => { const h = () => res(true); v.addEventListener("seeked", h, { once: true }); setTimeout(() => { v.removeEventListener("seeked", h); res(false); }, 4000); });
+  v.currentTime = t;
+  if (!(await done)) return false;
+  if (v.requestVideoFrameCallback) await Promise.race([new Promise(r => v.requestVideoFrameCallback(() => r())), sleep(250)]);
+  else await sleep(60);
+  return v.readyState >= 2;
+}
 async function framesFromVideo(file, onTick) {
-  const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "auto";
-  const url = URL.createObjectURL(file); v.src = url;
+  const { v, close } = await openVideo(file);
+  const out = []; let last = null;
+  const grab = async t => {
+    const W = v.videoWidth, H = v.videoHeight; if (!W) return;
+    const th = thumb(v, W, H);
+    if (!last || diff(th, last) > 5) { out.push({ t, blob: await toBlob(v, W, H) }); last = th; }
+  };
   try {
-    await once(v, "loadeddata", 15000);
-    try { await v.play(); v.pause(); } catch {}
     let dur = v.duration;
-    if (!isFinite(dur)) { await seek(v, 1e6).catch(() => {}); dur = v.duration || v.currentTime || 30; }
+    if (!isFinite(dur) || dur <= 0) { await seekTo(v, 1e6); dur = isFinite(v.duration) ? v.duration : v.currentTime || 60; }
     const step = clamp(dur / 180, 0.3, 1);
-    const out = []; let last = null;
+    let misses = 0, tries = 0;
     for (let t = 0.05; t < dur; t += step) {
-      await seek(v, Math.min(t, dur - 0.05));
-      const W = v.videoWidth, H = v.videoHeight; if (!W) continue;
-      const th = thumb(v, W, H);
-      if (!last || diff(th, last) > 5) { out.push({ t, blob: await toBlob(v, W, H) }); last = th; }
+      tries++;
+      if (await seekTo(v, Math.min(t, dur - 0.05))) await grab(t); else misses++;
       onTick?.(t / dur, out.length);
+      if (tries >= 6 && misses / tries > 0.5) break;   // seeking isn't working here; fall back to playing it
     }
+    if (out.length < 2 && dur > 1) {
+      // Fallback: play the recording through (sped up) and sample frames as it plays.
+      v.currentTime = 0; await sleep(200);
+      try { v.playbackRate = 2; } catch {}
+      try { await v.play(); } catch {}
+      const t0 = Date.now(), limit = (dur / 2 + 15) * 1000;
+      while (!v.ended && Date.now() - t0 < limit) {
+        await sleep(350);
+        if (v.readyState >= 2) await grab(v.currentTime);
+        onTick?.(v.currentTime / dur, out.length);
+      }
+      try { v.pause(); } catch {}
+    }
+    if (!out.length) throw { code: "video_load" };
     return out;
-  } finally { URL.revokeObjectURL(url); }
+  } finally { close(); }
 }
 async function framesFromImage(file) {
   const bmp = await createImageBitmap(file);
@@ -977,6 +1023,7 @@ function errText(e) {
   if (c === "rate_limited") return "Claude is rate limited right now. Wait a minute, then upload again.";
   if (c === "image_rejected") return "One of the frames was rejected. Try a shorter recording or screenshots.";
   if (c === "invalid_json") return "Claude's answer couldn't be read. Upload again; a slower scroll through the board helps.";
+  if (c === "video_load") return "Your phone wouldn't open that video for reading. Try again; if it keeps happening, save the recording to Photos first, or take screenshots and upload those instead.";
   if (c === "cancelled") return "";
   return "Something went wrong" + (e?.message ? ": " + e.message : "") + ". Try again.";
 }
