@@ -665,9 +665,10 @@ function analyzeAll(data, N = 20000) {
   const ctx = buildContext(data), pre = buildContext(pregameData(data));
   pre.priorByName = ctx.priorByName;
   const cache = {}, preCache = {};
-  const live = [], settled = [], pregame = [];
+  const live = [], settled = [], pregame = [], unnamed = [];
   (data.props || []).forEach((p, i) => {
     if (!p.id) p.id = "p" + i;
+    if (!p.player && !TEAM_MARKETS.includes(p.market_key) && p.market_key !== "other") { unnamed.push(p); return; }
     const firstHalf = /first|1st|1h/i.test(p.scope || "");
     const isPre = firstHalf || ctx.elapsed === 0;
     let r;
@@ -678,7 +679,7 @@ function analyzeAll(data, N = 20000) {
   });
   live.sort((a, b) => b.p - a.p);
   pregame.sort((a, b) => b.p - a.p);
-  return { ctx, live, settled, pregame };
+  return { ctx, live, settled, pregame, unnamed };
 }
 if (typeof module !== "undefined") module.exports = { analyzeAll, gameClock, implied, marketProb, parseDefense, setDefense };
 </script>
@@ -841,7 +842,9 @@ function render(data, result) {
   $("#liveSec").innerHTML = live.length || !pre.length ? `<div class="sec-h"><h2>Halftime</h2><span>judged from the current score and stats</span></div>
     <div class="list">${live.map((r, i) => propRow(r, i, false)).join("") || '<p class="hint">No props were found. Try a recording that shows the prop board more slowly.</p>'}</div>` : "";
 
-  $("#settled").innerHTML = result.settled.length ? `<details class="box"><summary>Already decided (${result.settled.length})</summary><div class="tbl"><table><tr><th>Prop</th><th>Result</th></tr>${result.settled.map(r => { const t = propTitle(r); return `<tr><td>${esc(t.who)} · ${esc(t.what)}</td><td>${r.settled === "hit" ? "Hit" : "Lost"}</td></tr>`; }).join("")}</table></div></details>` : "";
+  const un = result.unnamed || [];
+  const unBox = un.length ? `<details class="box" open><summary>Not ranked: no player name (${un.length})</summary><p class="hint">The recording showed these lines without saying whose they are, so they can't be projected. Record again with the player's name on screen while his props scroll by.</p><div class="tbl"><table><tr><th>Market</th><th>Line</th><th>Odds</th></tr>${un.map(p => `<tr><td>${esc(p.market || MARKETS[p.market_key])}</td><td>${esc((p.side === "under" ? "U " : p.side === "over" ? "O " : "") + (p.line ?? ""))}</td><td>${esc(oddsText(p.odds))}</td></tr>`).join("")}</table></div></details>` : "";
+  $("#settled").innerHTML = unBox + (result.settled.length ? `<details class="box"><summary>Already decided (${result.settled.length})</summary><div class="tbl"><table><tr><th>Prop</th><th>Result</th></tr>${result.settled.map(r => { const t = propTitle(r); return `<tr><td>${esc(t.who)} · ${esc(t.what)}</td><td>${r.settled === "hit" ? "Hit" : "Lost"}</td></tr>`; }).join("")}</table></div></details>` : "");
 
   const cols = ["pass_yds", "pass_att", "pass_cmp", "pass_td", "rush_att", "rush_yds", "rush_td", "rec", "rec_yds", "rec_td"];
   $("#readout").innerHTML = (data.players || []).length ? `<details class="box"><summary>What it read from the recording</summary><div class="tbl"><table><tr><th>Player</th><th>Tm</th>${cols.map(k => `<th>${esc(k.replace("_", " "))}</th>`).join("")}</tr>${data.players.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.team)}</td>${cols.map(k => `<td>${p.stats?.[k] ?? ""}</td>`).join("")}</tr>`).join("")}</table></div></details>` : "";
@@ -890,12 +893,14 @@ async function framesFromImage(file) {
 function pickEven(arr, n) { if (arr.length <= n) return arr; const out = []; for (let i = 0; i < n; i++) out.push(arr[Math.round(i * (arr.length - 1) / (n - 1))]); return out; }
 
 /* ---------- Claude ---------- */
-const EXTRACT_PROMPT = (i, n) => `These ${n} images are frames, in time order, from a screen recording of a live NFL game (batch ${i}). The recording shows a box score / live stats and a sportsbook prop board.
+const EXTRACT_PROMPT = (i, n, carry) => `These ${n} images are frames, in time order, from a screen recording of a live NFL game (batch ${i}). The recording shows a box score / live stats and a sportsbook prop board.
+${carry ? `In the frames just before these, the prop list was under the player header "${carry}". Props at the top of the first frame with no header of their own still belong to ${carry}.\n` : ""}
 
 The board may mix pregame/1st-half lines with live or 2nd-half lines; capture all of them. Read EVERYTHING visible and reply with only this JSON:
 {"game":{"home":{"abbr":"BAL","name":"Ravens","score":17},"away":{"abbr":"CIN","name":"Bengals","score":10},"status":"Halftime|Q3|Final|...","quarter":2,"clock":"0:00"},
  "players":[{"name":"Full Name","team":"ABBR","position":"QB|RB|WR|TE|K|LB|...","stats":{"pass_att":0,"pass_cmp":0,"pass_yds":0,"pass_td":0,"int":0,"rush_att":0,"rush_yds":0,"rush_td":0,"longest_rush":0,"targets":0,"rec":0,"rec_yds":0,"rec_td":0,"longest_rec":0,"tackles":0,"sacks":0,"fg_made":0,"xp_made":0}}],
- "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"scope":"full_game|first_half|second_half","last5":[72,48,91,55,60]}]}
+ "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"scope":"full_game|first_half|second_half","last5":[72,48,91,55,60]}],
+ "last_player_header":"the player whose prop list is showing at the bottom of the LAST frame, or null"}
 
 Rules:
 - Use the same team abbreviations in players, props and game. Every spread, moneyline and team-total prop MUST have "team" set to that team's abbreviation (never null, never the full name); player is null for those. Unknown field: null (or omit the stat).
@@ -904,6 +909,7 @@ Rules:
 - American odds as signed integers. If decimal odds are shown, convert to American.
 - Spread: side "over", line = the handicap for that team (e.g. -3.5), team set. Moneyline: side "over", line 0, team set. Team total: team set.
 - Half markets: scope "first_half" for 1st-half lines, "second_half" for 2nd-half lines. Skip single-quarter lines.
+- Every player prop MUST name its player. Books often show the name once, as a header, tab, or page title above a list of markets ("1st Half Rushing Yards", "Passing Attempts"...) instead of on each line: give every market under that header that player's full name. Never leave player null on a player stat market. If you truly cannot tell whose it is, still emit it with player null.
 - Anything you cannot map goes in with market_key "other".
 - Many boards show small numbers under or beside a prop (often a mini bar chart, or labeled L5 / Last 5): that player's results for that same stat in recent games. Put them in "last5", most recent first, and copy them onto both the Over and Under entries. They are NOT live stats, lines or odds; never use them for "stats" or "odds". Omit last5 when none are shown.
 - If these frames show nothing relevant, return empty arrays.`;
@@ -999,10 +1005,12 @@ async function run(files) {
     setStep("frames", "done", `Pulled ${frames.length} unique screens`);
     // 2. read
     const batches = []; for (let i = 0; i < frames.length; i += perCall) batches.push(frames.slice(i, i + perCall));
-    const parts = [];
+    const parts = []; let carry = null;
     for (let i = 0; i < batches.length; i++) {
       setStep("read", "on", `Reading the stats and props · part ${i + 1} of ${batches.length}`);
-      parts.push(await sample.json(EXTRACT_PROMPT(i + 1, batches[i].length), { images: batches[i].map(f => f.blob), modelTier: "default", signal: ctl.signal }));
+      const part = await sample.json(EXTRACT_PROMPT(i + 1, batches[i].length, carry), { images: batches[i].map(f => f.blob), modelTier: "default", signal: ctl.signal });
+      parts.push(part);
+      if (part && typeof part.last_player_header === "string" && part.last_player_header.trim()) carry = part.last_player_header.trim();
     }
     const data = mergeBatches(parts);
     if (!data.props.length) throw { message: "no props were visible in the recording. Make sure the prop board is on screen for a second or two" };
