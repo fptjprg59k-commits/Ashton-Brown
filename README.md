@@ -145,13 +145,17 @@ likely.
 2. **Reading.** Claude reads those frames for the score, the clock, every
    player's stats, and every prop with its odds. Both sides of a market are
    kept, and a market seen in several frames is counted once.
+   The small numbers many boards show under a prop, the player's results in
+   recent games, are read as last-5 results for that stat. They are never
+   treated as live stats or odds.
 3. **Context.** A second Claude call adds season per-game averages,
    opponent-strength multipliers, the chance each player finishes the game,
    weather, and the pregame spread and total.
 4. **Probability.** A 20,000-run simulation of the rest of the game is run in
    the browser for each stat. The current pace is regressed toward the season
    average, and the volume is adjusted for game script, blowout risk, the
-   opponent and weather. Yardage is simulated touch by touch, so the "longest"
+   opponent, weather and recent form. Recent form is the last-5 average
+   against the season average, shrunk toward neutral and capped at ±30%. Yardage is simulated touch by touch, so the "longest"
    markets work too. The result is then blended with the book's no-vig price,
    weighted 65% model and 35% market.
 

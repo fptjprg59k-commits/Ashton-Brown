@@ -123,7 +123,8 @@ header p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
 .sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
 .sec-h h2 { margin: 0; }
 .sec-h span { color: var(--muted); font-size: 13px; }
-.proj, .res { white-space: nowrap; }
+.proj, .res, .l5 { white-space: nowrap; }
+.l5 { font: 600 11px/1 var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
 .proj { font: 600 13px/1 var(--mono); color: var(--ink); background: var(--sunk); border-radius: 6px; padding: 4px 7px; font-variant-numeric: tabular-nums; }
 .proj b { font-family: var(--body); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 5px; font-weight: 600; }
 .res { font: 600 11px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; border-radius: 6px; padding: 4px 7px; }
@@ -274,7 +275,7 @@ function leadFor(ctx, abbr) {
 }
 
 // Expected remaining amount of one counted stat for one player, plus the reasons.
-function remainingMean(ctx, player, key, scope) {
+function remainingMean(ctx, player, key, scope, form = 1) {
   const pos = String(player.position || "").toUpperCase().replace(/[^A-Z]/g, "");
   const posKey = FALLBACK[pos] ? pos : /LB|DE|DT|CB|S|DL|DB/.test(pos) ? "DEF" : "WR";
   const pri = ctx.priorByName[normName(player.name)] || {};
@@ -309,15 +310,15 @@ function remainingMean(ctx, player, key, scope) {
   if (spec.flow === "pass" && STAT[key]?.yards) env = ctx.passEnv;
   const dm = Number((pri.defense_mult || {})[key]);
   const def = isFinite(dm) ? clamp(dm, 0.7, 1.3) : 1;
-  const mean = Math.max(0, rate * r * script * blow * env * def);
+  const mean = Math.max(0, rate * r * script * blow * env * def * form);
   const avail = isFinite(Number(pri.availability)) ? clamp(Number(pri.availability), 0, 1) : 1;
   return { cur, prior, priorSource, pace: pace * 60, w, script, blow, env, def, mean, avail, lead, r, pos: posKey };
 }
 
-function simStat(ctx, player, key, scope, N, cache) {
-  const ck = player.name + "|" + key + "|" + scope;
+function simStat(ctx, player, key, scope, N, cache, form = 1) {
+  const ck = player.name + "|" + key + "|" + scope + "|" + form.toFixed(3);
   if (cache[ck]) return cache[ck];
-  const m = remainingMean(ctx, player, key, scope);
+  const m = remainingMean(ctx, player, key, scope, form);
   const r = rng(hashStr(ck));
   const tot = new Float64Array(N), mx = new Float64Array(N);
   const spec = STAT[key] || { k: 6 };
@@ -374,6 +375,24 @@ function marketProb(prop) {
 function median(a) { const s = Float64Array.from(a).sort(); return s.length ? s[s.length >> 1] : 0; }
 function fmt(x, d = 0) { return Number(x).toFixed(d); }
 function pctText(x) { return (x * 100 >= 0 ? "+" : "") + Math.round(x * 100) + "%"; }
+
+// The book's "last 5 games" numbers for this prop: a hit count for the reasons, and a
+// recent-form multiplier (shrunk toward 1) on the projection.
+function recentForm(ctx, pl, comps, scope, prop, line, isUnder) {
+  const vals = (Array.isArray(prop.last5) ? prop.last5 : []).map(Number).filter(isFinite).slice(0, 10);
+  if (vals.length < 2) return { mult: 1, text: null, hits: null };
+  const n = vals.length, avg = vals.reduce((a, b) => a + b, 0) / n;
+  const hits = isFinite(line) ? vals.filter(v => isUnder ? v < line : v > line).length : null;
+  let mult = 1;
+  if (comps) {
+    let base = comps.reduce((s, [k, w]) => s + remainingMean(ctx, pl, k, "full_game").prior * w, 0);
+    if (scope !== "full_game") base *= 0.5;
+    if (base > 0) mult = clamp(1 + 0.35 * (n / 5) * (avg / base - 1), 0.75, 1.3);
+  }
+  const verb = isUnder ? "stayed under" : "cleared";
+  const text = `Last ${n} games: ${vals.join(", ")} (avg ${fmt(avg, avg < 10 ? 1 : 0)})${hits !== null ? ` · ${verb} ${line} in ${hits} of ${n}` : ""}${Math.abs(mult - 1) >= 0.03 ? ` · recent form ${pctText(mult - 1)}` : ""}`;
+  return { mult, text, hits, n };
+}
 
 // One prop in, one probability (plus reasons) out.
 function evaluateProp(ctx, prop, N, cache) {
@@ -454,6 +473,8 @@ function evaluateProp(ctx, prop, N, cache) {
     const cur = comps.reduce((s, k) => s + (Number(pl.stats?.[k]) || 0), 0) + (Number(pl.stats?.td) || 0);
     if (scope === "full_game" && cur >= 1) { res.settled = isUnder ? "lost" : "hit"; res.p = isUnder ? 0 : 1; res.reasons.push("Already scored"); return res; }
     const sims = comps.map(k => simStat(ctx, pl, k, scope, N, cache));
+    const rfTd = recentForm(ctx, pl, null, scope, prop, 0.5, isUnder);
+    if (rfTd.text) { res.reasons.push(rfTd.text); res.l5 = rfTd; }
     let hit = 0; for (let i = 0; i < N; i++) { if (sims.reduce((s, x) => s + x.tot[i], 0) >= 1) hit++; }
     const lam = sims.reduce((s, x) => s + x.m.mean, 0);
     res.proj = { value: cur + lam, unit: "TDs", dec: 2 };
@@ -472,12 +493,16 @@ function evaluateProp(ctx, prop, N, cache) {
     res.proj = { value: median(vals), unit: "yd long" };
     res.progress = { cur: curLong, line };
     res.reasons.push(`Longest so far ${curLong}; needs one gain over ${line}`);
+    const rfL = recentForm(ctx, pl, null, scope, prop, line, isUnder);
+    if (rfL.text) { res.reasons.push(rfL.text); res.l5 = rfL; }
     addPlayerReasons(res, s.m, pri, base);
     return finish(hit / N, false);
   }
 
   const comps = key === "kick_pts" ? [["fg_made", 3], ["xp_made", 1]] : (COMPOSITE[key] || [key]).map(k => [k, 1]);
-  const sims = comps.map(([k]) => simStat(ctx, pl, k, scope, N, cache));
+  const rf = recentForm(ctx, pl, comps, scope, prop, line, isUnder);
+  if (rf.text) res.l5 = rf;
+  const sims = comps.map(([k]) => simStat(ctx, pl, k, scope, N, cache, rf.mult));
   let cur = 0;
   comps.forEach(([k, mult], i) => { cur += (scope === "full_game" ? sims[i].m.cur : 0) * mult; });
   if (scope === "second_half" && ctx.elapsed > 30) res.reasons.push("Second-half line read after halftime; current-half stats are not separated in the feed");
@@ -495,6 +520,7 @@ function evaluateProp(ctx, prop, N, cache) {
   res.reasons.push(ctx.elapsed === 0
     ? `Typical outcome ${fmt(res.proj.value, res.proj.dec ?? 0)}, average ${fmt(remMean, remMean < 10 ? 1 : 0)} over ${fmt(sims[0].m.r)} min, against a line of ${line}`
     : `Has ${fmt(cur, cur % 1 ? 1 : 0)}, needs ${fmt(Math.max(0, Math.floor(line - cur) + 1))} more; projects ${fmt(remMean, remMean < 10 ? 1 : 0)} more in ${fmt(sims[0].m.r)} min`);
+  if (rf.text) res.reasons.push(rf.text);
   addPlayerReasons(res, sims[0].m, pri, comps[0][0]);
   const lowInfo = sims.every(s => s.m.priorSource === "fallback");
   if (lowInfo) res.reasons.push("No season average found, so a position default was used");
@@ -616,7 +642,7 @@ if (typeof module !== "undefined") module.exports = { analyzeAll, gameClock, imp
     {"name": "Tee Higgins", "team": "CIN", "position": "WR", "stats": {"targets": 5, "rec": 3, "rec_yds": 41, "longest_rec": 19}}
   ],
   "props": [
-    {"player": "Ja'Marr Chase", "team": "CIN", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 121.5, "odds": -105, "opposing_odds": -114},
+    {"player": "Ja'Marr Chase", "team": "CIN", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 121.5, "odds": -105, "opposing_odds": -114, "last5": [131, 88, 145, 102, 76]},
     {"player": "Ja'Marr Chase", "team": "CIN", "market_key": "rec", "market": "Receptions", "side": "over", "line": 9.5, "odds": 142, "opposing_odds": -171},
     {"player": "Tee Higgins", "team": "CIN", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 63.5, "odds": 119, "opposing_odds": -143},
     {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_yds", "market": "Passing Yards", "side": "over", "line": 301.5, "odds": -107, "opposing_odds": -112},
@@ -633,8 +659,8 @@ if (typeof module !== "undefined") module.exports = { analyzeAll, gameClock, imp
     {"player": "Mark Andrews", "team": "BAL", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 48.5, "odds": -105, "opposing_odds": -114},
     {"player": "Rashod Bateman", "team": "BAL", "market_key": "anytime_td", "market": "Anytime TD", "side": "yes", "line": 0.5, "odds": 230},
     {"player": null, "team": null, "market_key": "game_total", "market": "Total Points", "side": "over", "line": 47.5, "odds": -110, "opposing_odds": -110},
-    {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_yds", "market": "1st Half Passing Yards", "side": "over", "line": 139.5, "odds": -114, "opposing_odds": -106, "scope": "first_half"},
-    {"player": "Derrick Henry", "team": "BAL", "market_key": "rush_yds", "market": "1st Half Rushing Yards", "side": "over", "line": 49.5, "odds": -112, "opposing_odds": -108, "scope": "first_half"},
+    {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_yds", "market": "1st Half Passing Yards", "side": "over", "line": 139.5, "odds": -114, "opposing_odds": -106, "scope": "first_half", "last5": [162, 148, 121, 177, 139]},
+    {"player": "Derrick Henry", "team": "BAL", "market_key": "rush_yds", "market": "1st Half Rushing Yards", "side": "over", "line": 49.5, "odds": -112, "opposing_odds": -108, "scope": "first_half", "last5": [71, 38, 64, 55, 29]},
     {"player": "Ja'Marr Chase", "team": "CIN", "market_key": "rec_yds", "market": "1st Half Receiving Yards", "side": "over", "line": 44.5, "odds": -110, "opposing_odds": -110, "scope": "first_half"},
     {"player": "Zay Flowers", "team": "BAL", "market_key": "rec", "market": "1st Half Receptions", "side": "over", "line": 2.5, "odds": -125, "opposing_odds": 105, "scope": "first_half"},
     {"player": "Lamar Jackson", "team": "BAL", "market_key": "rush_yds", "market": "1st Half Rushing Yards", "side": "under", "line": 24.5, "odds": -108, "opposing_odds": -112, "scope": "first_half"},
@@ -696,7 +722,7 @@ function propRow(r, i, isPre) {
   return `<article class="prop" tabindex="0" aria-expanded="false">
       <div class="pct ${tone(r.p)}">${pc}%<small>to hit</small></div>
       <div class="pname"><span class="rank">${i + 1}</span>${esc(t.who)}</div>
-      <div class="pline"><span>${esc(t.what)}</span><span class="odds">${esc(oddsText(r.prop.odds))}</span></div>
+      <div class="pline"><span>${esc(t.what)}</span><span class="odds">${esc(oddsText(r.prop.odds))}</span>${r.l5 && r.l5.hits !== null ? `<span class="l5" title="${esc(r.l5.text)}">L${r.l5.n} ${r.l5.hits}/${r.l5.n}</span>` : ""}</div>
       ${prog}${proj}
       <div class="why" hidden><ul>${r.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
     </article>`;
@@ -777,7 +803,7 @@ const EXTRACT_PROMPT = (i, n) => `These ${n} images are frames, in time order, f
 The board may mix pregame/1st-half lines with live or 2nd-half lines; capture all of them. Read EVERYTHING visible and reply with only this JSON:
 {"game":{"home":{"abbr":"BAL","name":"Ravens","score":17},"away":{"abbr":"CIN","name":"Bengals","score":10},"status":"Halftime|Q3|Final|...","quarter":2,"clock":"0:00"},
  "players":[{"name":"Full Name","team":"ABBR","position":"QB|RB|WR|TE|K|LB|...","stats":{"pass_att":0,"pass_cmp":0,"pass_yds":0,"pass_td":0,"int":0,"rush_att":0,"rush_yds":0,"rush_td":0,"longest_rush":0,"targets":0,"rec":0,"rec_yds":0,"rec_td":0,"longest_rec":0,"tackles":0,"sacks":0,"fg_made":0,"xp_made":0}}],
- "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"scope":"full_game|first_half|second_half"}]}
+ "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"scope":"full_game|first_half|second_half","last5":[72,48,91,55,60]}]}
 
 Rules:
 - Use the same team abbreviations in players, props and game. Every spread, moneyline and team-total prop MUST have "team" set to that team's abbreviation (never null, never the full name); player is null for those. Unknown field: null (or omit the stat).
@@ -787,6 +813,7 @@ Rules:
 - Spread: side "over", line = the handicap for that team (e.g. -3.5), team set. Moneyline: side "over", line 0, team set. Team total: team set.
 - Half markets: scope "first_half" for 1st-half lines, "second_half" for 2nd-half lines. Skip single-quarter lines.
 - Anything you cannot map goes in with market_key "other".
+- Many boards show small numbers under or beside a prop (often a mini bar chart, or labeled L5 / Last 5): that player's results for that same stat in recent games. Put them in "last5", most recent first, and copy them onto both the Over and Under entries. They are NOT live stats, lines or odds; never use them for "stats" or "odds". Omit last5 when none are shown.
 - If these frames show nothing relevant, return empty arrays.`;
 
 function mergeBatches(parts) {
@@ -821,10 +848,11 @@ function contextPrompt(d) {
   const players = [...new Set(d.props.filter(p => p.player).map(p => p.player))];
   const roster = players.map(n => { const p = d.players.find(x => normName(x.name) === normName(n)); return { name: n, team: p?.team || d.props.find(x => x.player === n)?.team, position: p?.position, stats_so_far: p?.stats || {} }; });
   const markets = {}; d.props.filter(p => p.player).forEach(p => { (markets[p.player] = markets[p.player] || new Set()).add(p.market_key); });
+  const recent = {}; d.props.filter(p => p.player && Array.isArray(p.last5)).forEach(p => { ((recent[p.player] = recent[p.player] || {})[p.market_key + (p.scope === "first_half" ? "_1h" : "")] = p.last5); });
   const others = d.props.filter(p => p.market_key === "other").map(p => ({ id: p.id, player: p.player, team: p.team, market: p.market, side: p.side, line: p.line, odds: p.odds }));
   return `You are an NFL analyst. A live game: ${JSON.stringify(d.game)}.
 Players with props, their stats so far, and the markets offered:
-${JSON.stringify(roster.map(r => ({ ...r, markets: [...(markets[r.name] || [])] })))}
+${JSON.stringify(roster.map(r => ({ ...r, markets: [...(markets[r.name] || [])], last5_from_book: recent[r.name] || undefined })))}
 ${others.length ? "Unusual markets to estimate directly:\n" + JSON.stringify(others) : ""}
 
 Using everything you know (this season's per-game averages through your latest knowledge, role and snap share, the opponent's defense against that stat, injuries, weather and venue, coaching tendencies), reply with only this JSON:
