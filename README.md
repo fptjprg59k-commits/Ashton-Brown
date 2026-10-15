@@ -155,6 +155,18 @@ likely.
    markets work too. The result is then blended with the book's no-vig price,
    weighted 65% model and 35% market.
 
+Results come in two sections, each ranked from most to least likely:
+
+- **Pregame** lists the 1st-half lines, judged as of kickoff from season
+  averages, matchup and pregame spread and total, with no live stats. Each
+  line also shows a projected stat, the median simulated outcome, which is a
+  realistic guess at what the player will actually finish with. If the
+  recording was taken at halftime, each line also shows what actually
+  happened in the first half. When the game hasn't started yet, every line
+  goes in this section.
+- **Halftime & live** lists full-game and 2nd-half lines, judged from the
+  current score and stats as described above.
+
 Props that have already cashed or lost are left out of the ranking and listed
 separately. Tap a prop to see what drove its number. When no recording has
 been loaded, the page shows a clearly labelled example game.

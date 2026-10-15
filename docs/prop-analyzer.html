@@ -111,7 +111,7 @@ header p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
 .pname { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .pline { color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-width: 0; }
 .pline .odds { font-family: var(--mono); font-size: 13px; }
-.prog { grid-column: 2; display: flex; align-items: center; gap: 8px; margin-top: 6px; font: 500 12px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.prog { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 6px; font: 500 12px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .bar { position: relative; flex: 1; height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
 .bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 3px; }
 .why { grid-column: 1 / -1; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; }
@@ -119,6 +119,16 @@ header p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
 .why .split { margin-top: 8px; color: var(--muted); font: 500 12px/1.4 var(--mono); }
 .rank { font: 600 12px/1 var(--mono); color: var(--muted); margin-right: 6px; }
 
+.sec { display: flex; flex-direction: column; gap: 8px; }
+.sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.sec-h h2 { margin: 0; }
+.sec-h span { color: var(--muted); font-size: 13px; }
+.proj, .res { white-space: nowrap; }
+.proj { font: 600 13px/1 var(--mono); color: var(--ink); background: var(--sunk); border-radius: 6px; padding: 4px 7px; font-variant-numeric: tabular-nums; }
+.proj b { font-family: var(--body); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 5px; font-weight: 600; }
+.res { font: 600 11px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; border-radius: 6px; padding: 4px 7px; }
+.res.ok { background: var(--hi-soft); color: var(--hi); }
+.res.no { background: var(--lo-soft); color: var(--lo); }
 details.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
 details.box summary { cursor: pointer; font-weight: 600; }
 .tbl { overflow-x: auto; margin-top: 10px; }
@@ -132,7 +142,7 @@ h2 { font: 700 1.3rem/1.1 var(--display); text-transform: uppercase; letter-spac
 <div class="wrap">
   <header>
     <h1>Halftime Prop Analyzer</h1>
-    <p>Upload a screen recording that shows the live stats and the prop board. Every prop gets one number: the chance it hits, ranked from most to least likely.</p>
+    <p>Upload a screen recording that shows the live stats and the prop board. Every prop gets one number: the chance it hits, ranked from most to least likely. First-half lines are judged as of kickoff, with a projected stat for each; halftime and live lines are judged from where the game stands now.</p>
   </header>
 
   <section class="upload" id="drop">
@@ -147,13 +157,14 @@ h2 { font: 700 1.3rem/1.1 var(--display); text-transform: uppercase; letter-spac
       <li data-s="frames">Pulling frames from the recording</li>
       <li data-s="read">Reading the stats and props</li>
       <li data-s="research">Checking season averages, matchups and injuries</li>
-      <li data-s="calc">Simulating the rest of the game</li>
+      <li data-s="calc">Simulating the game</li>
     </ol>
     <div class="err" id="err" hidden></div>
   </section>
 
   <section class="board-head" id="head"></section>
-  <section class="list" id="list"></section>
+  <section class="sec" id="preSec"></section>
+  <section class="sec" id="liveSec"></section>
   <section id="settled"></section>
   <section id="readout"></section>
 
@@ -218,6 +229,7 @@ function normName(s) { return String(s || "").toLowerCase().normalize("NFD").rep
 function gameClock(game) {
   const st = String(game.status || "").toLowerCase();
   if (/final/.test(st)) return { elapsed: 60, remaining: 0 };
+  if (/pre|sched|upcoming|not started/.test(st) || Number(game.quarter) === 0) return { elapsed: 0, remaining: 60 };
   if (/half/.test(st)) return { elapsed: 30, remaining: 30 };
   const q = Number(game.quarter) || 3;
   const [m, s] = String(game.clock || "15:00").split(":").map(Number);
@@ -269,7 +281,7 @@ function remainingMean(ctx, player, key, scope) {
   const perGame = pri.per_game || {};
   const stats = player.stats || {};
   let cur = Number(stats[key]) || 0;
-  const e = ctx.elapsed, r = scope === "second_half" ? Math.min(30, ctx.remaining) : ctx.remaining;
+  const e = ctx.elapsed, r = scope === "full_game" ? ctx.remaining : Math.min(30, ctx.remaining);
   let prior = Number(perGame[key]);
   let priorSource = "season";
   if (!isFinite(prior)) {
@@ -314,10 +326,10 @@ function simStat(ctx, player, key, scope, N, cache) {
     const pri = ctx.priorByName[normName(player.name)] || {}; const pg = pri.per_game || {};
     let ypt = spec.ypt;
     if (isFinite(Number(pg[key])) && Number(pg[spec.touch]) > 0.5) ypt = clamp(Number(pg[key]) / Number(pg[spec.touch]), spec.ypt * 0.4, spec.ypt * 2);
-    const touches = m.mean / ypt, base = ypt - spec.shift, shape = 1 / (spec.cv * spec.cv), scale = base / shape;
+    const touches = m.mean / ypt, base = ypt - spec.shift, shape = Math.pow(base / (spec.cv * ypt), 2), scale = base / shape;
     for (let i = 0; i < N; i++) {
       const play = r() < leaveP ? r() : 1;
-      const n = negbin(r, touches * play, 6);
+      const n = negbin(r, touches * play, STAT[spec.touch]?.k ?? 6);
       let s = 0, best = 0;
       for (let j = 0; j < n; j++) { const y = Math.round(gamma(r, shape) * scale + spec.shift); s += y; if (y > best) best = y; }
       tot[i] = s; mx[i] = best;
@@ -328,9 +340,10 @@ function simStat(ctx, player, key, scope, N, cache) {
   return (cache[ck] = { m, tot, mx });
 }
 
-function simTeams(ctx, N, cache) {
-  if (cache.__teams) return cache.__teams;
-  const r = rng(hashStr("teams" + ctx.abbrs.join())), e = ctx.elapsed, rem = ctx.remaining;
+function simTeams(ctx, N, cache, rem) {
+  const ck = "__teams" + rem;
+  if (cache[ck]) return cache[ck];
+  const r = rng(hashStr("teams" + ctx.abbrs.join())), e = ctx.elapsed;
   const w = e > 0 ? e / (e + 60) : 0;
   const out = {};
   for (const a of ctx.abbrs) {
@@ -348,7 +361,7 @@ function simTeams(ctx, N, cache) {
     }
     out[a] = { mean, arr };
   }
-  return (cache.__teams = out);
+  return (cache[ck] = out);
 }
 
 function marketProb(prop) {
@@ -358,6 +371,7 @@ function marketProb(prop) {
   return clamp(p1 - 0.025, 0.01, 0.99);
 }
 
+function median(a) { const s = Float64Array.from(a).sort(); return s.length ? s[s.length >> 1] : 0; }
 function fmt(x, d = 0) { return Number(x).toFixed(d); }
 function pctText(x) { return (x * 100 >= 0 ? "+" : "") + Math.round(x * 100) + "%"; }
 
@@ -366,8 +380,9 @@ function evaluateProp(ctx, prop, N, cache) {
   const key = prop.market_key in MARKETS ? prop.market_key : "other";
   const side = String(prop.side || "over").toLowerCase();
   const line = Number(prop.line);
-  const scope = /second|2nd|2h/i.test(prop.scope || "") ? "second_half" : "full_game";
-  const res = { prop, key, side, line, scope, reasons: [], settled: null, pModel: null, pMarket: marketProb(prop), progress: null };
+  const scope = /first|1st|1h/i.test(prop.scope || "") ? "first_half" : /second|2nd|2h/i.test(prop.scope || "") ? "second_half" : "full_game";
+  const res = { prop, key, side, line, scope, reasons: [], settled: null, pModel: null, pMarket: marketProb(prop), progress: null, proj: null };
+  const remMin = scope === "full_game" ? ctx.remaining : Math.min(30, ctx.remaining);
   const isUnder = side === "under" || side === "no";
   const finish = (pOver, lowInfo) => {
     let p = isUnder ? 1 - pOver : pOver;
@@ -391,14 +406,16 @@ function evaluateProp(ctx, prop, N, cache) {
 
   // team and game markets
   if (["game_total", "team_total", "spread", "moneyline"].includes(key)) {
-    const T = simTeams(ctx, N, cache);
+    const T = simTeams(ctx, N, cache, remMin);
     const [a, b] = ctx.abbrs;
-    const scoreNow = x => scope === "second_half" ? 0 : ctx.teams[x].score;
+    const scoreNow = x => scope === "full_game" ? ctx.teams[x].score : 0;
     const team = String(prop.team || "").toUpperCase();
     const me = ctx.teams[team] ? team : a, op = me === a ? b : a;
     let hit = 0, push = 0;
+    const vals = new Float64Array(N);
     for (let i = 0; i < N; i++) {
       const A = scoreNow(me) + T[me].arr[i], B = scoreNow(op) + T[op].arr[i];
+      vals[i] = key === "game_total" ? A + B : key === "team_total" ? A : A - B;
       let v;
       if (key === "game_total") v = A + B - line;
       else if (key === "team_total") v = A - line;
@@ -411,18 +428,17 @@ function evaluateProp(ctx, prop, N, cache) {
       const now = key === "game_total" ? scoreNow(a) + scoreNow(b) : scoreNow(me);
       const add = key === "game_total" ? T[a].mean + T[b].mean : T[me].mean;
       res.progress = { cur: now, line };
-      res.reasons.push(`${now} on the board, about ${fmt(add)} more projected in ${fmt(ctx.remaining)} min`);
+      res.reasons.push(ctx.elapsed === 0 ? `About ${fmt(add)} points projected in ${fmt(remMin)} min` : `${now} on the board, about ${fmt(add)} more projected in ${fmt(remMin)} min`);
       if (ctx.total) res.reasons.push(`Pregame total ${ctx.total} sets the scoring pace prior`);
     } else {
       const lead = scoreNow(me) - scoreNow(op);
-      res.reasons.push(`${me} ${lead >= 0 ? "leads by " + lead : "trails by " + -lead} with ${fmt(ctx.remaining)} min left`);
+      if (ctx.elapsed > 0) res.reasons.push(`${me} ${lead >= 0 ? "leads by " + lead : "trails by " + -lead} with ${fmt(remMin)} min left`);
       if (ctx.spread !== null) res.reasons.push(`Pregame line: home ${ctx.spread > 0 ? "+" : ""}${ctx.spread}`);
       if (push) res.reasons.push(`Pushes ${Math.round(push / N * 100)}% of the time`);
     }
-    if (key === "spread" || key === "moneyline") {
-      // for these the "side" is the team; treat as an over on that team
-      return finish(pOver, false);
-    }
+    res.proj = key === "game_total" || key === "team_total"
+      ? { value: median(vals), unit: "pts" }
+      : { value: median(vals), unit: `pt margin (${me})` };
     return finish(pOver, false);
   }
 
@@ -439,6 +455,7 @@ function evaluateProp(ctx, prop, N, cache) {
     const sims = comps.map(k => simStat(ctx, pl, k, scope, N, cache));
     let hit = 0; for (let i = 0; i < N; i++) { if (sims.reduce((s, x) => s + x.tot[i], 0) >= 1) hit++; }
     const lam = sims.reduce((s, x) => s + x.m.mean, 0);
+    res.proj = { value: cur + lam, unit: "TDs", dec: 2 };
     res.reasons.push(`Projected ${fmt(lam, 2)} TDs the rest of the way`);
     addPlayerReasons(res, sims[0].m, pri, "rush_td");
     return finish(hit / N, false);
@@ -449,7 +466,9 @@ function evaluateProp(ctx, prop, N, cache) {
     const curLong = scope === "full_game" ? Number(pl.stats?.[key]) || 0 : 0;
     if (curLong > line) { res.settled = isUnder ? "lost" : "hit"; res.p = isUnder ? 0 : 1; res.reasons.push(`Already has a ${curLong}-yard gain`); return res; }
     const s = simStat(ctx, pl, base, scope, N, cache);
-    let hit = 0; for (let i = 0; i < N; i++) if (s.mx[i] > line) hit++;
+    let hit = 0; const vals = new Float64Array(N);
+    for (let i = 0; i < N; i++) { vals[i] = Math.max(curLong, s.mx[i]); if (s.mx[i] > line) hit++; }
+    res.proj = { value: median(vals), unit: "yd long" };
     res.progress = { cur: curLong, line };
     res.reasons.push(`Longest so far ${curLong}; needs one gain over ${line}`);
     addPlayerReasons(res, s.m, pri, base);
@@ -466,11 +485,15 @@ function evaluateProp(ctx, prop, N, cache) {
     res.reasons.push(`Already at ${cur} against a line of ${line}`); return res;
   }
   if (ctx.remaining <= 0) { res.settled = isUnder ? "hit" : "lost"; res.p = isUnder ? 1 : 0; res.reasons.push("Game is over"); return res; }
-  let hit = 0;
-  for (let i = 0; i < N; i++) { let t = cur; comps.forEach(([, mult], j) => { t += sims[j].tot[i] * mult; }); if (t > line) hit++; }
+  let hit = 0; const vals = new Float64Array(N);
+  for (let i = 0; i < N; i++) { let t = cur; comps.forEach(([, mult], j) => { t += sims[j].tot[i] * mult; }); vals[i] = t; if (t > line) hit++; }
   const remMean = comps.reduce((s, [, mult], j) => s + sims[j].m.mean * mult, 0);
+  const rare = comps.every(([k]) => STAT[k]?.rare);
+  res.proj = rare ? { value: cur + remMean, unit: MARKETS[key] || key, dec: 1 } : { value: median(vals), unit: MARKETS[key] || key };
   res.progress = { cur, line };
-  res.reasons.push(`Has ${fmt(cur, cur % 1 ? 1 : 0)}, needs ${fmt(Math.max(0, Math.floor(line - cur) + 1))} more; projects ${fmt(remMean, remMean < 10 ? 1 : 0)} more in ${fmt(sims[0].m.r)} min`);
+  res.reasons.push(ctx.elapsed === 0
+    ? `Typical outcome ${fmt(res.proj.value, res.proj.dec ?? 0)}, average ${fmt(remMean, remMean < 10 ? 1 : 0)} over ${fmt(sims[0].m.r)} min, against a line of ${line}`
+    : `Has ${fmt(cur, cur % 1 ? 1 : 0)}, needs ${fmt(Math.max(0, Math.floor(line - cur) + 1))} more; projects ${fmt(remMean, remMean < 10 ? 1 : 0)} more in ${fmt(sims[0].m.r)} min`);
   addPlayerReasons(res, sims[0].m, pri, comps[0][0]);
   const lowInfo = sims.every(s => s.m.priorSource === "fallback");
   if (lowInfo) res.reasons.push("No season average found, so a position default was used");
@@ -480,7 +503,9 @@ function evaluateProp(ctx, prop, N, cache) {
 function addPlayerReasons(res, m, pri, key) {
   if (m.priorSource !== "fallback" && m.prior > 0) {
     const label = MARKETS[key] || key;
-    res.reasons.push(`Season avg ${fmt(m.prior, m.prior < 10 ? 1 : 0)} ${label.toLowerCase()}/game vs ${fmt(m.pace, m.pace < 10 ? 1 : 0)} pace today (today counts ${Math.round(m.w * 100)}%)`);
+    res.reasons.push(m.w > 0
+      ? `Season avg ${fmt(m.prior, m.prior < 10 ? 1 : 0)} ${label.toLowerCase()}/game vs ${fmt(m.pace, m.pace < 10 ? 1 : 0)} pace today (today counts ${Math.round(m.w * 100)}%)`
+      : `Season avg ${fmt(m.prior, m.prior < 10 ? 1 : 0)} ${label.toLowerCase()}/game`);
   }
   if (Math.abs(m.script - 1) >= 0.03) res.reasons.push(`Game script (${m.lead > 0 ? "up " + m.lead : m.lead < 0 ? "down " + -m.lead : "tied"}): ${pctText(m.script - 1)} volume`);
   if (m.blow < 0.97) res.reasons.push(`Blowout risk could sit starters late: ${pctText(m.blow - 1)}`);
@@ -490,18 +515,58 @@ function addPlayerReasons(res, m, pri, key) {
   if (pri.note) res.reasons.push(pri.note);
 }
 
+// The same game as it stood before kickoff: no score, no stats. First-half lines are judged from here.
+function pregameData(data) {
+  const g = data.game || {};
+  const zero = t => ({ ...(t || {}), score: 0 });
+  return { ...data, game: { ...g, home: zero(g.home), away: zero(g.away), status: "pregame", quarter: 0, clock: "15:00" },
+    players: (data.players || []).map(p => ({ ...p, stats: {} })) };
+}
+
+// What a first-half line actually did, readable only while the game sits at halftime.
+function firstHalfResult(ctx, r) {
+  if (ctx.elapsed !== 30) return null;
+  const p = r.prop, under = r.side === "under" || r.side === "no";
+  const me = teamOf(ctx, p.team), A = ctx.abbrs.map(x => ctx.teams[x].score);
+  let v = null, win = null;
+  if (r.key === "game_total") v = A[0] + A[1];
+  else if (r.key === "team_total" && me) v = me.score;
+  else if ((r.key === "spread" || r.key === "moneyline") && me) {
+    const margin = leadFor(ctx, p.team);
+    v = margin; win = r.key === "spread" ? margin + r.line > 0 : margin > 0;
+    return { value: v, hit: win, label: `${margin > 0 ? "+" : ""}${margin} margin` };
+  } else if (p.player) {
+    const pl = findPlayer(ctx, p.player); if (!pl) return null;
+    if (r.key === "anytime_td") {
+      const td = (Number(pl.stats?.rush_td) || 0) + (Number(pl.stats?.rec_td) || 0);
+      return { value: td, hit: under ? td === 0 : td >= 1, label: `${td} TD` };
+    }
+    const comps = r.key === "kick_pts" ? [["fg_made", 3], ["xp_made", 1]] : (COMPOSITE[r.key] || [r.key]).map(k => [k, 1]);
+    if (!comps.some(([k]) => pl.stats?.[k] !== undefined)) return null;
+    v = comps.reduce((s, [k, m]) => s + (Number(pl.stats?.[k]) || 0) * m, 0);
+  }
+  if (v === null || !isFinite(r.line)) return null;
+  return { value: v, hit: under ? v < r.line : v > r.line, label: String(v) };
+}
+
 function analyzeAll(data, N = 20000) {
-  const ctx = buildContext(data), cache = {};
-  const live = [], settled = [];
+  const ctx = buildContext(data), pre = buildContext(pregameData(data));
+  pre.priorByName = ctx.priorByName;
+  const cache = {}, preCache = {};
+  const live = [], settled = [], pregame = [];
   (data.props || []).forEach((p, i) => {
     if (!p.id) p.id = "p" + i;
+    const firstHalf = /first|1st|1h/i.test(p.scope || "");
+    const isPre = firstHalf || ctx.elapsed === 0;
     let r;
-    try { r = evaluateProp(ctx, p, N, cache); } catch (e) { r = null; }
+    try { r = evaluateProp(isPre ? pre : ctx, p, N, isPre ? preCache : cache); } catch (e) { r = null; }
     if (!r) return;
-    (r.settled ? settled : live).push(r);
+    if (isPre) { if (firstHalf) r.actual = firstHalfResult(ctx, r); pregame.push(r); }
+    else (r.settled ? settled : live).push(r);
   });
   live.sort((a, b) => b.p - a.p);
-  return { ctx, live, settled };
+  pregame.sort((a, b) => b.p - a.p);
+  return { ctx, live, settled, pregame };
 }
 if (typeof module !== "undefined") module.exports = { analyzeAll, gameClock, implied, marketProb };
 </script>
@@ -539,6 +604,12 @@ if (typeof module !== "undefined") module.exports = { analyzeAll, gameClock, imp
     {"player": "Mark Andrews", "team": "BAL", "market_key": "rec_yds", "market": "Receiving Yards", "side": "over", "line": 48.5, "odds": -105, "opposing_odds": -114},
     {"player": "Rashod Bateman", "team": "BAL", "market_key": "anytime_td", "market": "Anytime TD", "side": "yes", "line": 0.5, "odds": 230},
     {"player": null, "team": null, "market_key": "game_total", "market": "Total Points", "side": "over", "line": 47.5, "odds": -110, "opposing_odds": -110},
+    {"player": "Joe Burrow", "team": "CIN", "market_key": "pass_yds", "market": "1st Half Passing Yards", "side": "over", "line": 139.5, "odds": -114, "opposing_odds": -106, "scope": "first_half"},
+    {"player": "Derrick Henry", "team": "BAL", "market_key": "rush_yds", "market": "1st Half Rushing Yards", "side": "over", "line": 49.5, "odds": -112, "opposing_odds": -108, "scope": "first_half"},
+    {"player": "Ja'Marr Chase", "team": "CIN", "market_key": "rec_yds", "market": "1st Half Receiving Yards", "side": "over", "line": 44.5, "odds": -110, "opposing_odds": -110, "scope": "first_half"},
+    {"player": "Zay Flowers", "team": "BAL", "market_key": "rec", "market": "1st Half Receptions", "side": "over", "line": 2.5, "odds": -125, "opposing_odds": 105, "scope": "first_half"},
+    {"player": "Lamar Jackson", "team": "BAL", "market_key": "rush_yds", "market": "1st Half Rushing Yards", "side": "under", "line": 24.5, "odds": -108, "opposing_odds": -112, "scope": "first_half"},
+    {"player": null, "team": null, "market_key": "game_total", "market": "1st Half Total", "side": "over", "line": 23.5, "odds": -110, "opposing_odds": -110, "scope": "first_half"},
     {"player": null, "team": "CIN", "market_key": "spread", "market": "Spread", "side": "over", "line": 6.5, "odds": -115, "opposing_odds": -105}
   ],
   "context": {
@@ -569,7 +640,7 @@ function oddsText(o) { o = Number(o); return isFinite(o) && o !== 0 ? (o > 0 ? "
 function propTitle(r) {
   const p = r.prop, side = r.side;
   const mk = MARKETS[r.key] || p.market || "";
-  const scope = r.scope === "second_half" ? " (2H)" : "";
+  const scope = r.scope === "second_half" ? " (2H)" : r.scope === "first_half" ? " (1H)" : "";
   if (r.key === "anytime_td") return { who: p.player, what: `${side === "no" ? "No" : ""} Anytime TD${scope}`.trim() };
   if (r.key === "moneyline") return { who: p.team || "", what: "Moneyline" + scope };
   if (r.key === "spread") return { who: p.team || "", what: `Spread ${r.line > 0 ? "+" : ""}${r.line}${scope}` };
@@ -577,6 +648,26 @@ function propTitle(r) {
   if (r.key === "team_total") return { who: `${p.team || ""} team total`, what: `${side === "under" ? "Under" : "Over"} ${r.line}${scope}` };
   const sd = side === "under" ? "Under" : side === "no" ? "No" : side === "yes" ? "Yes" : "Over";
   return { who: p.player || p.team || "", what: `${sd} ${isFinite(r.line) ? r.line : ""} ${mk || p.market}${scope}`.replace(/\s+/g, " ").trim() };
+}
+function projText(pr) {
+  if (!pr || !isFinite(pr.value)) return "";
+  const d = pr.dec ?? (Math.abs(pr.value) < 10 && pr.value % 1 ? 1 : 0);
+  const v = Number(pr.value).toFixed(d);
+  return `${pr.unit.startsWith("pt margin") && pr.value > 0 ? "+" : ""}${v} ${pr.unit.replace(/^Pass |^Rush |^Rec /, m => m).toLowerCase()}`;
+}
+function propRow(r, i, isPre) {
+  const t = propTitle(r), pc = Math.round(r.p * 100);
+  const showProg = !isPre && r.progress && isFinite(r.progress.line) && r.progress.line > 0;
+  const prog = showProg
+    ? `<div class="prog"><span>${esc(r.progress.cur)}</span><span class="bar"><i style="width:${Math.min(100, r.progress.cur / r.progress.line * 100).toFixed(1)}%"></i></span><span>${esc(r.progress.line)}</span></div>` : "";
+  const proj = isPre && r.proj ? `<div class="prog"><span class="proj"><b>Proj</b>${esc(projText(r.proj))}</span>${r.actual ? `<span class="res ${r.actual.hit ? "ok" : "no"}">1st half: ${esc(r.actual.label)} · ${r.actual.hit ? "hit" : "missed"}</span>` : ""}</div>` : "";
+  return `<article class="prop" tabindex="0" aria-expanded="false">
+      <div class="pct ${tone(r.p)}">${pc}%<small>to hit</small></div>
+      <div class="pname"><span class="rank">${i + 1}</span>${esc(t.who)}</div>
+      <div class="pline"><span>${esc(t.what)}</span><span class="odds">${esc(oddsText(r.prop.odds))}</span></div>
+      ${prog}${proj}
+      <div class="why" hidden><ul>${r.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
+    </article>`;
 }
 function tone(p) { return p >= 0.7 ? "hi" : p >= 0.5 ? "mid" : "lo"; }
 
@@ -591,20 +682,13 @@ function render(data, result) {
       <div class="clock"><b>${esc(st)}</b>${/half/i.test(st) ? "" : esc(g.clock || "")}<br>${Math.round(c.remaining)} min left</div>
       <div class="team r"><span class="ab">${esc(h.abbr || "HOME")}</span><span class="pts">${esc(h.score ?? "")}</span></div>
     </div>
-    <div class="meta">${result.live.length} props ranked${result.settled.length ? ` · ${result.settled.length} already decided` : ""}${c.weather ? " · " + esc(c.weather) : ""}</div>`;
+    <div class="meta">${result.pregame.length ? result.pregame.length + " pregame · " : ""}${result.live.length} live props ranked${result.settled.length ? ` · ${result.settled.length} already decided` : ""}${c.weather ? " · " + esc(c.weather) : ""}</div>`;
 
-  $("#list").innerHTML = result.live.map((r, i) => {
-    const t = propTitle(r), pc = Math.round(r.p * 100);
-    const prog = r.progress && isFinite(r.progress.line) && r.progress.line > 0
-      ? `<div class="prog"><span>${esc(r.progress.cur)}</span><span class="bar"><i style="width:${Math.min(100, r.progress.cur / r.progress.line * 100).toFixed(1)}%"></i></span><span>${esc(r.progress.line)}</span></div>` : "";
-    return `<article class="prop" tabindex="0" aria-expanded="false">
-      <div class="pct ${tone(r.p)}">${pc}%<small>to hit</small></div>
-      <div class="pname"><span class="rank">${i + 1}</span>${esc(t.who)}</div>
-      <div class="pline"><span>${esc(t.what)}</span><span class="odds">${esc(oddsText(r.prop.odds))}</span></div>
-      ${prog}
-      <div class="why" hidden><ul>${r.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
-    </article>`;
-  }).join("") || '<p class="hint">No props were found. Try a recording that shows the prop board more slowly.</p>';
+  const pre = result.pregame, live = result.live;
+  $("#preSec").innerHTML = pre.length ? `<div class="sec-h"><h2>Pregame</h2><span>1st-half lines · judged as of kickoff</span></div>
+    <div class="list">${pre.map((r, i) => propRow(r, i, true)).join("")}</div>` : "";
+  $("#liveSec").innerHTML = live.length || !pre.length ? `<div class="sec-h"><h2>Halftime &amp; live</h2><span>judged from the current score and stats</span></div>
+    <div class="list">${live.map((r, i) => propRow(r, i, false)).join("") || '<p class="hint">No props were found. Try a recording that shows the prop board more slowly.</p>'}</div>` : "";
 
   $("#settled").innerHTML = result.settled.length ? `<details class="box"><summary>Already decided (${result.settled.length})</summary><div class="tbl"><table><tr><th>Prop</th><th>Result</th></tr>${result.settled.map(r => { const t = propTitle(r); return `<tr><td>${esc(t.who)} · ${esc(t.what)}</td><td>${r.settled === "hit" ? "Hit" : "Lost"}</td></tr>`; }).join("")}</table></div></details>` : "";
 
@@ -612,8 +696,10 @@ function render(data, result) {
   $("#readout").innerHTML = (data.players || []).length ? `<details class="box"><summary>What it read from the recording</summary><div class="tbl"><table><tr><th>Player</th><th>Tm</th>${cols.map(k => `<th>${esc(k.replace("_", " "))}</th>`).join("")}</tr>${data.players.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.team)}</td>${cols.map(k => `<td>${p.stats?.[k] ?? ""}</td>`).join("")}</tr>`).join("")}</table></div></details>` : "";
 }
 
-$("#list").addEventListener("click", ev => toggle(ev.target.closest(".prop")));
-$("#list").addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(ev.target.closest(".prop")); } });
+for (const id of ["#preSec", "#liveSec"]) {
+  $(id).addEventListener("click", ev => toggle(ev.target.closest(".prop")));
+  $(id).addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(ev.target.closest(".prop")); } });
+}
 function toggle(el) { if (!el) return; const w = el.querySelector(".why"); w.hidden = !w.hidden; el.setAttribute("aria-expanded", String(!w.hidden)); }
 
 /* ---------- frames ---------- */
@@ -655,10 +741,10 @@ function pickEven(arr, n) { if (arr.length <= n) return arr; const out = []; for
 /* ---------- Claude ---------- */
 const EXTRACT_PROMPT = (i, n) => `These ${n} images are frames, in time order, from a screen recording of a live NFL game (batch ${i}). The recording shows a box score / live stats and a sportsbook prop board.
 
-Read EVERYTHING visible and reply with only this JSON:
+The board may mix pregame/1st-half lines with live or 2nd-half lines; capture all of them. Read EVERYTHING visible and reply with only this JSON:
 {"game":{"home":{"abbr":"BAL","name":"Ravens","score":17},"away":{"abbr":"CIN","name":"Bengals","score":10},"status":"Halftime|Q3|Final|...","quarter":2,"clock":"0:00"},
  "players":[{"name":"Full Name","team":"ABBR","position":"QB|RB|WR|TE|K|LB|...","stats":{"pass_att":0,"pass_cmp":0,"pass_yds":0,"pass_td":0,"int":0,"rush_att":0,"rush_yds":0,"rush_td":0,"longest_rush":0,"targets":0,"rec":0,"rec_yds":0,"rec_td":0,"longest_rec":0,"tackles":0,"sacks":0,"fg_made":0,"xp_made":0}}],
- "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"scope":"full_game|second_half"}]}
+ "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"scope":"full_game|first_half|second_half"}]}
 
 Rules:
 - Use the same team abbreviations in players, props and game. Unknown field: null (or omit the stat).
@@ -666,7 +752,7 @@ Rules:
 - One entry per side: if Over and Under are both shown, emit two entries, each with its own odds and the other side's odds as opposing_odds.
 - American odds as signed integers. If decimal odds are shown, convert to American.
 - Spread: side "over", line = the handicap for that team (e.g. -3.5), team set. Moneyline: side "over", line 0, team set. Team total: team set.
-- "1st Half"/"2nd Half"/"3rd Quarter" markets: scope "second_half" for 2nd-half lines; skip 1st-half and 1st-quarter lines, they are settled.
+- Half markets: scope "first_half" for 1st-half lines, "second_half" for 2nd-half lines. Skip single-quarter lines.
 - Anything you cannot map goes in with market_key "other".
 - If these frames show nothing relevant, return empty arrays.`;
 
@@ -780,7 +866,7 @@ async function run(files) {
     // 4. calc
     setStep("calc", "on"); await new Promise(r => setTimeout(r, 30));
     const result = analyzeAll(data);
-    setStep("calc", "done", `Ranked ${result.live.length} props`);
+    setStep("calc", "done", `Ranked ${result.pregame.length + result.live.length} props`);
     render(data, result);
     $("#head").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   } catch (e) {
