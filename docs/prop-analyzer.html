@@ -132,6 +132,7 @@ header p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
 .res.no { background: var(--lo-soft); color: var(--lo); }
 details.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
 details.box summary { cursor: pointer; font-weight: 600; }
+#diagText { white-space: pre-wrap; overflow-wrap: anywhere; font: 500 11.5px/1.45 var(--mono); color: var(--muted); margin: 10px 0; max-height: 260px; overflow: auto; }
 #defBox { display: flex; flex-direction: column; gap: 10px; }
 #defBox .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
 #defText { width: 100%; margin-top: 8px; font: 500 12px/1.5 var(--mono); color: var(--ink); background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
@@ -164,6 +165,11 @@ h2 { font: 700 1.3rem/1.1 var(--display); text-transform: uppercase; letter-spac
       <li data-s="calc">Simulating the game</li>
     </ol>
     <div class="err" id="err" hidden></div>
+    <details class="box" id="diag" hidden>
+      <summary>Report for troubleshooting</summary>
+      <pre id="diagText"></pre>
+      <button class="btn ghost" id="diagCopy" type="button">Copy report</button>
+    </details>
   </section>
 
   <section class="board-head" id="head"></section>
@@ -867,6 +873,7 @@ function toBlob(src, w, h) {
   return new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+let diag = {};
 async function until(test, ms) { const t0 = Date.now(); while (!test()) { if (Date.now() - t0 > ms) return false; await sleep(100); } return true; }
 // iPhones won't load a video that is off the page or has never played, so the player sits
 // on the page (invisible) and is started muted before any frame is read.
@@ -909,13 +916,16 @@ async function framesFromVideo(file, onTick) {
     if (!isFinite(dur) || dur <= 0) { await seekTo(v, 1e6); dur = isFinite(v.duration) ? v.duration : v.currentTime || 60; }
     const step = clamp(dur / 180, 0.3, 1);
     let misses = 0, tries = 0;
+    diag.video = { duration: Math.round(dur * 10) / 10, size: `${v.videoWidth}x${v.videoHeight}`, method: "seek" };
     for (let t = 0.05; t < dur; t += step) {
       tries++;
       if (await seekTo(v, Math.min(t, dur - 0.05))) await grab(t); else misses++;
       onTick?.(t / dur, out.length);
       if (tries >= 6 && misses / tries > 0.5) break;   // seeking isn't working here; fall back to playing it
     }
+    diag.video.seekMisses = `${misses}/${tries}`;
     if (out.length < 2 && dur > 1) {
+      diag.video.method = "playback";
       // Fallback: play the recording through (sped up) and sample frames as it plays.
       v.currentTime = 0; await sleep(200);
       try { v.playbackRate = 2; } catch {}
@@ -1028,7 +1038,51 @@ function errText(e) {
   return "Something went wrong" + (e?.message ? ": " + e.message : "") + ". Try again.";
 }
 
+// One slice of frames -> one JSON reply. A reply that comes back cut off (too many props for one
+// answer) is asked again once as two smaller halves.
+async function readSlice(frames, i, depth = 0) {
+  const rec = { slice: i + 1, frames: frames.length, depth };
+  diag.slices.push(rec);
+  try {
+    const part = await sample.json(EXTRACT_PROMPT(i + 1, frames.length), { images: frames.map(f => f.blob), modelTier: "default", signal: ctl.signal });
+    rec.props = (part?.props || []).length; rec.players = (part?.players || []).length;
+    return part;
+  } catch (e) {
+    rec.error = e?.code || String(e?.message || e);
+    if (e?.code === "invalid_json") rec.raw = String(e.text || "").slice(0, 160);
+    if ((e?.code === "invalid_json" || e?.code === "empty_completion") && frames.length > 1 && depth === 0) {
+      const h = Math.ceil(frames.length / 2);
+      const a = await readSlice(frames.slice(0, h), i, 1).catch(() => null), b = await readSlice(frames.slice(h), i, 1).catch(() => null);
+      if (a || b) return { game: { ...(a?.game || {}), ...(b?.game || {}) }, players: [...(a?.players || []), ...(b?.players || [])], props: [...(a?.props || []), ...(b?.props || [])], last_player_header: b?.last_player_header || a?.last_player_header };
+    }
+    throw e;
+  }
+}
+
+function showDiag(open) {
+  const lines = [
+    `Prop analyzer report · ${new Date().toISOString()}`,
+    `Device: ${navigator.userAgent}`,
+    `Files: ${(diag.files || []).join("; ")}`,
+    `Claude available: ${!!sample} · image limits: ${JSON.stringify(diag.limits || null)}`,
+    `Video: ${JSON.stringify(diag.video || null)}`,
+    `Screens pulled: ${diag.pulled ?? "-"} · sent: ${diag.sent ?? "-"}`,
+    ...(diag.slices || []).map(r => `  slice ${r.slice}${r.depth ? " (half)" : ""}: ${r.frames} frames -> ${r.error ? "ERROR " + r.error + (r.raw ? " | " + JSON.stringify(r.raw) : "") : r.props + " props, " + r.players + " players"}`),
+    `Research step: ${diag.research || "-"}`,
+    `Result: ${diag.result || "-"}`,
+    diag.error ? `Failed at "${diag.step}": ${diag.error}` : "",
+  ].filter(Boolean);
+  $("#diagText").textContent = lines.join("\n");
+  $("#diag").hidden = false; if (open) $("#diag").open = true;
+}
+$("#diagCopy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($("#diagText").textContent); $("#diagCopy").textContent = "Copied"; }
+  catch { const r = document.createRange(); r.selectNodeContents($("#diagText")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $("#diagCopy").textContent = "Selected; copy it"; }
+  setTimeout(() => { $("#diagCopy").textContent = "Copy report"; }, 2500);
+});
+
 async function run(files) {
+  diag = { files: files.map(f => `${f.name} (${f.type || "?"}, ${(f.size / 1048576).toFixed(1)} MB)`), slices: [] };
   showErr(""); $("#steps").hidden = false;
   ["frames", "read", "research", "calc"].forEach(s => setStep(s, ""));
   $("#pickBtn").setAttribute("aria-disabled", "true"); $("#file").disabled = true; $("#stopBtn").hidden = false;
@@ -1037,7 +1091,8 @@ async function run(files) {
     if (!sample) throw { code: "not_granted" };
     const lim = await sample.limits().catch(() => null);
     if (!lim?.images) throw { code: "images_unavailable" };
-    const perCall = Math.max(1, Math.min(lim.images.maxCount || 5, 8));
+    const perCall = Math.max(1, Math.min(lim.images.maxCount || 4, 4));
+    diag.limits = { maxImages: lim.images.maxCount, maxBytes: lim.images.maxInputBytes };
     // 1. frames
     setStep("frames", "on");
     let frames = [];
@@ -1048,23 +1103,24 @@ async function run(files) {
       if (ctl.signal.aborted) throw { code: "cancelled" };
     }
     if (!frames.length) throw { message: "no frames could be read from that file" };
-    const MAX_BATCHES = 15, pulled = frames.length;
+    const MAX_BATCHES = 20, pulled = frames.length;
     frames = pickEven(frames, perCall * MAX_BATCHES);
+    diag.pulled = pulled; diag.sent = frames.length;
     setStep("frames", "done", pulled > frames.length ? `Pulled ${pulled} unique screens; reading ${frames.length} spread across the recording` : `Pulled ${frames.length} unique screens`);
     // 2. read
     const batches = []; for (let i = 0; i < frames.length; i += perCall) batches.push(frames.slice(i, i + perCall));
-    // read slices three at a time; a slice that starts mid-list gets its player from the slice before it
+    // read slices two at a time; a slice that starts mid-list gets its player from the slice before it
     const parts = new Array(batches.length); let next = 0, done = 0, failed = 0, firstErr = null;
     setStep("read", "on", `Reading the stats and props · 0 of ${batches.length}`);
     const worker = async () => {
       while (next < batches.length && !ctl.signal.aborted) {
         const i = next++;
-        try { parts[i] = await sample.json(EXTRACT_PROMPT(i + 1, batches[i].length), { images: batches[i].map(f => f.blob), modelTier: "default", signal: ctl.signal }); }
+        try { parts[i] = await readSlice(batches[i], i); }
         catch (e) { if (e?.code === "cancelled" || e?.code === "not_granted" || e?.code === "rate_limited") throw e; failed++; firstErr = firstErr || e; }
         setStep("read", "on", `Reading the stats and props · ${++done} of ${batches.length}`);
       }
     };
-    await Promise.all([worker(), worker(), worker()]);
+    await Promise.all([worker(), worker()]);
     if (failed === batches.length) throw firstErr;
     let header = null;
     for (const part of parts) {
@@ -1081,9 +1137,10 @@ async function run(files) {
     setStep("research", "on");
     try {
       data.context = await sample.json(contextPrompt(data), { modelTier: "complex", signal: ctl.signal });
-      setStep("research", "done");
+      setStep("research", "done"); diag.research = `ok, ${(data.context?.players || []).length} players`;
     } catch (e) {
       if (e?.code === "cancelled") throw e;
+      diag.research = "failed: " + (e?.code || e?.message);
       data.context = {}; setStep("research", "fail", "Couldn't load season averages; using position defaults");
     }
     // 4. calc
@@ -1092,10 +1149,15 @@ async function run(files) {
     const result = analyzeAll(data);
     setStep("calc", "done", `Ranked ${result.pregame.length + result.live.length} props`);
     render(data, result);
+    diag.result = `${result.pregame.length} pregame, ${result.live.length} halftime, ${result.settled.length} decided, ${(result.unnamed || []).length} unnamed`;
+    showDiag(false);
     $("#head").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   } catch (e) {
     const on = $("#steps li.on"); if (on) on.className = "fail";
-    showErr(errText(e));
+    diag.step = on?.textContent || "?"; diag.error = (e?.code || "") + " " + (e?.message || "");
+    const msg = errText(e);
+    showErr(msg ? msg + " If it keeps failing, tap Copy report below and send it to me." : "");
+    showDiag(true);
   } finally {
     $("#pickBtn").removeAttribute("aria-disabled"); $("#file").disabled = false; $("#stopBtn").hidden = true; $("#file").value = "";
   }
