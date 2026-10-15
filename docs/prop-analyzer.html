@@ -338,7 +338,7 @@ function remainingMean(ctx, player, key, scope, form = 1) {
   const perGame = pri.per_game || {};
   const stats = player.stats || {};
   let cur = Number(stats[key]) || 0;
-  const e = ctx.elapsed, r = scope === "full_game" ? ctx.remaining : Math.min(30, ctx.remaining);
+  const e = ctx.elapsed, r = scope === "full_game" ? ctx.remaining : Math.min(scope === "first_quarter" ? 15 : 30, ctx.remaining);
   let prior = Number(perGame[key]);
   let priorSource = "season";
   if (!isFinite(prior)) {
@@ -448,7 +448,7 @@ function recentForm(ctx, pl, comps, scope, prop, line, isUnder) {
   let mult = 1;
   if (comps) {
     let base = comps.reduce((s, [k, w]) => s + remainingMean(ctx, pl, k, "full_game").prior * w, 0);
-    if (scope !== "full_game") base *= 0.5;
+    if (scope === "first_quarter") base *= 0.25; else if (scope !== "full_game") base *= 0.5;
     if (base > 0) mult = clamp(1 + 0.35 * (n / 5) * (avg / base - 1), 0.75, 1.3);
   }
   const verb = isUnder ? "stayed under" : "cleared";
@@ -456,14 +456,22 @@ function recentForm(ctx, pl, comps, scope, prop, line, isUnder) {
   return { mult, text, hits, n };
 }
 
+function scopeOf(prop) {
+  const t = String(prop.scope || "");
+  if (/quarter|1q/i.test(t)) return "first_quarter";
+  if (/first|1st|1h/i.test(t)) return "first_half";
+  if (/second|2nd|2h/i.test(t)) return "second_half";
+  return "full_game";
+}
+
 // One prop in, one probability (plus reasons) out.
 function evaluateProp(ctx, prop, N, cache) {
   const key = prop.market_key in MARKETS ? prop.market_key : "other";
   const side = String(prop.side || "over").toLowerCase();
   const line = Number(prop.line);
-  const scope = /first|1st|1h/i.test(prop.scope || "") ? "first_half" : /second|2nd|2h/i.test(prop.scope || "") ? "second_half" : "full_game";
+  const scope = scopeOf(prop);
   const res = { prop, key, side, line, scope, reasons: [], settled: null, pModel: null, pMarket: marketProb(prop), progress: null, proj: null };
-  const remMin = scope === "full_game" ? ctx.remaining : Math.min(30, ctx.remaining);
+  const remMin = scope === "full_game" ? ctx.remaining : Math.min(scope === "first_quarter" ? 15 : 30, ctx.remaining);
   const isUnder = side === "under" || side === "no";
   const finish = (pOver, lowInfo) => {
     let p = isUnder ? 1 - pOver : pOver;
@@ -675,8 +683,8 @@ function analyzeAll(data, N = 20000) {
   (data.props || []).forEach((p, i) => {
     if (!p.id) p.id = "p" + i;
     if (!p.player && !TEAM_MARKETS.includes(p.market_key) && p.market_key !== "other") { unnamed.push(p); return; }
-    const firstHalf = /first|1st|1h/i.test(p.scope || "");
-    const isPre = firstHalf || ctx.elapsed === 0;
+    const sc = scopeOf(p), firstHalf = sc === "first_half";
+    const isPre = firstHalf || sc === "first_quarter" || ctx.elapsed === 0;
     let r;
     try { r = evaluateProp(isPre ? pre : ctx, p, N, isPre ? preCache : cache); } catch (e) { r = null; }
     if (!r) return;
@@ -796,7 +804,7 @@ function teamLabel(abbr) { if (!abbr) return ""; const n = teamNames[String(abbr
 function propTitle(r) {
   const p = r.prop, side = r.side;
   const mk = MARKETS[r.key] || p.market || "";
-  const scope = r.scope === "second_half" ? " (2H)" : r.scope === "first_half" ? " (1H)" : "";
+  const scope = { second_half: " (2H)", first_half: " (1H)", first_quarter: " (1Q)" }[r.scope] || "";
   if (r.key === "anytime_td") return { who: p.player, what: `${side === "no" ? "No" : ""} Anytime TD${scope}`.trim() };
   const teamName = teamLabel(p.team) || p.player || p.market || "Team";
   if (r.key === "moneyline") return { who: teamName, what: "Moneyline" + scope };
@@ -843,7 +851,7 @@ function render(data, result) {
     <div class="meta">${result.pregame.length ? result.pregame.length + " pregame · " : ""}${result.live.length} live props ranked${result.settled.length ? ` · ${result.settled.length} already decided` : ""}${c.weather ? " · " + esc(c.weather) : ""}</div>`;
 
   const pre = result.pregame, live = result.live;
-  $("#preSec").innerHTML = pre.length ? `<div class="sec-h"><h2>Pregame</h2><span>1st-half lines · judged as of kickoff</span></div>
+  $("#preSec").innerHTML = pre.length ? `<div class="sec-h"><h2>Pregame</h2><span>1st-half &amp; 1st-quarter lines · judged as of kickoff</span></div>
     <div class="list">${pre.map((r, i) => propRow(r, i, true)).join("")}</div>` : "";
   $("#liveSec").innerHTML = live.length || !pre.length ? `<div class="sec-h"><h2>Halftime</h2><span>judged from the current score and stats</span></div>
     <div class="list">${live.map((r, i) => propRow(r, i, false)).join("") || '<p class="hint">No props were found. Try a recording that shows the prop board more slowly.</p>'}</div>` : "";
@@ -952,22 +960,24 @@ function pickEven(arr, n) { if (arr.length <= n) return arr; const out = []; for
 const EXTRACT_PROMPT = (i, n) => `These ${n} images are frames, in time order, from a screen recording of a live NFL game (batch ${i}). The recording shows a box score / live stats and a sportsbook prop board.
 
 
-The board may mix pregame/1st-half lines with live or 2nd-half lines; capture all of them. Read EVERYTHING visible and reply with only this JSON:
+The board may mix pregame/1st-half lines with live or 2nd-half lines; capture all of them.
+Stake layout (the usual source): a player's prop page shows his name ONCE at the top; below it each market is a card with a title (e.g. "1st Half Rushing Yards"), a "Last 5:" row, the line on the right (e.g. 23.5) and two buttons "Over 1.79" / "Under 1.88". Every card on that page belongs to that player until a different player's name appears. The clock-like "00:25:46" next to the AIGC logo under the balance is a session timer, NOT the game clock: ignore it. If no scoreboard or box score is visible, set game.status to "pregame" and leave scores null.
+Read EVERYTHING visible and reply with only this JSON:
 {"game":{"home":{"abbr":"BAL","name":"Ravens","score":17},"away":{"abbr":"CIN","name":"Bengals","score":10},"status":"Halftime|Q3|Final|...","quarter":2,"clock":"0:00"},
  "players":[{"name":"Full Name","team":"ABBR","position":"QB|RB|WR|TE|K|LB|...","stats":{"pass_att":0,"pass_cmp":0,"pass_yds":0,"pass_td":0,"int":0,"rush_att":0,"rush_yds":0,"rush_td":0,"longest_rush":0,"targets":0,"rec":0,"rec_yds":0,"rec_td":0,"longest_rec":0,"tackles":0,"sacks":0,"fg_made":0,"xp_made":0}}],
- "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"scope":"full_game|first_half|second_half","last5":[72,48,91,55,60]}],
+ "props":[{"player":"Full Name or null","team":"ABBR or null","market":"text exactly as shown","market_key":"one of: ${KEYS}","side":"over|under|yes|no","line":65.5,"odds":-115,"opposing_odds":-105,"odds_decimal":1.79,"opposing_odds_decimal":1.88,"scope":"full_game|first_half|first_quarter|second_half","last5":[5,30,9,8,24]}],
  "last_player_header":"the player whose prop list is showing at the bottom of the LAST frame, or null"}
 
 Rules:
 - Use the same team abbreviations in players, props and game. Every spread, moneyline and team-total prop MUST have "team" set to that team's abbreviation (never null, never the full name); player is null for those. Unknown field: null (or omit the stat).
 - Include only stats you can actually read; never guess numbers.
 - One entry per side: if Over and Under are both shown, emit two entries, each with its own odds and the other side's odds as opposing_odds.
-- American odds as signed integers. If decimal odds are shown, convert to American.
+- Odds: copy exactly what is shown. Decimal odds (1.79, 3.48) go in odds_decimal / opposing_odds_decimal and leave odds null; American odds (-115, +140) go in odds / opposing_odds. Never convert.
 - Spread: side "over", line = the handicap for that team (e.g. -3.5), team set. Moneyline: side "over", line 0, team set. Team total: team set.
-- Half markets: scope "first_half" for 1st-half lines, "second_half" for 2nd-half lines. Skip single-quarter lines.
+- Scope from the market title: "1st Half ..." -> first_half, "1st Quarter ..." -> first_quarter, "2nd Half ..." -> second_half, otherwise full_game. Skip 2nd/3rd/4th-quarter lines. market_key is the stat without the period (1st Half Rushing Yards -> rush_yds, 1st Quarter Rushing Attempts -> rush_att).
 - Every player prop MUST name its player. Books often show the name once, as a header, tab, or page title above a list of markets ("1st Half Rushing Yards", "Passing Attempts"...) instead of on each line: give every market under that header that player's full name. Never leave player null on a player stat market. These frames are one slice of a longer recording: if props at the top of the first frame sit under a player header that scrolled off before these frames began, set their player to "^" (it will be filled in from the previous slice). If you truly cannot tell whose it is otherwise, emit it with player null.
 - Anything you cannot map goes in with market_key "other".
-- Many boards show small numbers under or beside a prop (often a mini bar chart, or labeled L5 / Last 5): that player's results for that same stat in recent games. Put them in "last5", most recent first, and copy them onto both the Over and Under entries. They are NOT live stats, lines or odds; never use them for "stats" or "odds". Omit last5 when none are shown.
+- Many boards show small numbers under or beside a prop (often a mini bar chart, or labeled L5 / Last 5): that player's results for that same stat in recent games. Stake shows "Last 5: 5 ▸ 30 ▸ 9 ▸ 8 ▸ [24]" (oldest to newest, the boxed number is the latest game): put the numbers in "last5" in the order shown, and copy them onto both the Over and Under entries. They are NOT live stats, lines or odds; never use them for "stats" or "odds". Omit last5 when none are shown.
 - If these frames show nothing relevant, return empty arrays.`;
 
 function mergeBatches(parts) {
@@ -994,7 +1004,13 @@ function mergeBatches(parts) {
     }
   }
   out.players = [...pMap.values()];
-  out.props = [...prMap.values()].map((p, i) => ({ ...p, id: "p" + i, line: p.line === undefined ? 0.5 : p.line }));
+  const toAm = d => { d = Number(d); if (!isFinite(d) || d <= 1) return null; return d >= 2 ? Math.round((d - 1) * 100) : Math.round(-100 / (d - 1)); };
+  out.props = [...prMap.values()].map((p, i) => {
+    const q = { ...p, id: "p" + i, line: p.line === undefined ? 0.5 : p.line };
+    if (q.odds_decimal != null) q.odds = toAm(q.odds_decimal) ?? q.odds;
+    if (q.opposing_odds_decimal != null) q.opposing_odds = toAm(q.opposing_odds_decimal) ?? q.opposing_odds;
+    return q;
+  });
   return out;
 }
 
