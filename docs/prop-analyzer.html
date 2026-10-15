@@ -939,8 +939,8 @@ async function framesFromImage(file) {
 function pickEven(arr, n) { if (arr.length <= n) return arr; const out = []; for (let i = 0; i < n; i++) out.push(arr[Math.round(i * (arr.length - 1) / (n - 1))]); return out; }
 
 /* ---------- Claude ---------- */
-const EXTRACT_PROMPT = (i, n, carry) => `These ${n} images are frames, in time order, from a screen recording of a live NFL game (batch ${i}). The recording shows a box score / live stats and a sportsbook prop board.
-${carry ? `In the frames just before these, the prop list was under the player header "${carry}". Props at the top of the first frame with no header of their own still belong to ${carry}.\n` : ""}
+const EXTRACT_PROMPT = (i, n) => `These ${n} images are frames, in time order, from a screen recording of a live NFL game (batch ${i}). The recording shows a box score / live stats and a sportsbook prop board.
+
 
 The board may mix pregame/1st-half lines with live or 2nd-half lines; capture all of them. Read EVERYTHING visible and reply with only this JSON:
 {"game":{"home":{"abbr":"BAL","name":"Ravens","score":17},"away":{"abbr":"CIN","name":"Bengals","score":10},"status":"Halftime|Q3|Final|...","quarter":2,"clock":"0:00"},
@@ -955,7 +955,7 @@ Rules:
 - American odds as signed integers. If decimal odds are shown, convert to American.
 - Spread: side "over", line = the handicap for that team (e.g. -3.5), team set. Moneyline: side "over", line 0, team set. Team total: team set.
 - Half markets: scope "first_half" for 1st-half lines, "second_half" for 2nd-half lines. Skip single-quarter lines.
-- Every player prop MUST name its player. Books often show the name once, as a header, tab, or page title above a list of markets ("1st Half Rushing Yards", "Passing Attempts"...) instead of on each line: give every market under that header that player's full name. Never leave player null on a player stat market. If you truly cannot tell whose it is, still emit it with player null.
+- Every player prop MUST name its player. Books often show the name once, as a header, tab, or page title above a list of markets ("1st Half Rushing Yards", "Passing Attempts"...) instead of on each line: give every market under that header that player's full name. Never leave player null on a player stat market. These frames are one slice of a longer recording: if props at the top of the first frame sit under a player header that scrolled off before these frames began, set their player to "^" (it will be filled in from the previous slice). If you truly cannot tell whose it is otherwise, emit it with player null.
 - Anything you cannot map goes in with market_key "other".
 - Many boards show small numbers under or beside a prop (often a mini bar chart, or labeled L5 / Last 5): that player's results for that same stat in recent games. Put them in "last5", most recent first, and copy them onto both the Over and Under entries. They are NOT live stats, lines or odds; never use them for "stats" or "odds". Omit last5 when none are shown.
 - If these frames show nothing relevant, return empty arrays.`;
@@ -1048,20 +1048,35 @@ async function run(files) {
       if (ctl.signal.aborted) throw { code: "cancelled" };
     }
     if (!frames.length) throw { message: "no frames could be read from that file" };
-    frames = pickEven(frames, perCall * 5);
-    setStep("frames", "done", `Pulled ${frames.length} unique screens`);
+    const MAX_BATCHES = 15, pulled = frames.length;
+    frames = pickEven(frames, perCall * MAX_BATCHES);
+    setStep("frames", "done", pulled > frames.length ? `Pulled ${pulled} unique screens; reading ${frames.length} spread across the recording` : `Pulled ${frames.length} unique screens`);
     // 2. read
     const batches = []; for (let i = 0; i < frames.length; i += perCall) batches.push(frames.slice(i, i + perCall));
-    const parts = []; let carry = null;
-    for (let i = 0; i < batches.length; i++) {
-      setStep("read", "on", `Reading the stats and props · part ${i + 1} of ${batches.length}`);
-      const part = await sample.json(EXTRACT_PROMPT(i + 1, batches[i].length, carry), { images: batches[i].map(f => f.blob), modelTier: "default", signal: ctl.signal });
-      parts.push(part);
-      if (part && typeof part.last_player_header === "string" && part.last_player_header.trim()) carry = part.last_player_header.trim();
+    // read slices three at a time; a slice that starts mid-list gets its player from the slice before it
+    const parts = new Array(batches.length); let next = 0, done = 0, failed = 0, firstErr = null;
+    setStep("read", "on", `Reading the stats and props · 0 of ${batches.length}`);
+    const worker = async () => {
+      while (next < batches.length && !ctl.signal.aborted) {
+        const i = next++;
+        try { parts[i] = await sample.json(EXTRACT_PROMPT(i + 1, batches[i].length), { images: batches[i].map(f => f.blob), modelTier: "default", signal: ctl.signal }); }
+        catch (e) { if (e?.code === "cancelled" || e?.code === "not_granted" || e?.code === "rate_limited") throw e; failed++; firstErr = firstErr || e; }
+        setStep("read", "on", `Reading the stats and props · ${++done} of ${batches.length}`);
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    if (failed === batches.length) throw firstErr;
+    let header = null;
+    for (const part of parts) {
+      if (!part) continue;
+      for (const p of part.props || []) if (p && p.player === "^") p.player = header;
+      for (const p of part.props || []) if (p && p.player && p.player !== "^") header = p.player;
+      if (typeof part.last_player_header === "string" && part.last_player_header.trim()) header = part.last_player_header.trim();
     }
-    const data = mergeBatches(parts);
+    const data = mergeBatches(parts.filter(Boolean));
     if (!data.props.length) throw { message: "no props were visible in the recording. Make sure the prop board is on screen for a second or two" };
-    setStep("read", "done", `Read ${data.players.length} players and ${data.props.length} props`);
+    const propPlayers = new Set(data.props.map(p => p.player).filter(Boolean)).size;
+    setStep("read", "done", `Read ${data.props.length} props for ${propPlayers} players${failed ? ` (${failed} of ${batches.length} slices couldn't be read)` : ""}`);
     // 3. research
     setStep("research", "on");
     try {
