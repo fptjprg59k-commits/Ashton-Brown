@@ -154,7 +154,14 @@ likely.
 4. **Probability.** A 20,000-run simulation of the rest of the game is run in
    the browser for each stat. The current pace is regressed toward the season
    average, and the volume is adjusted for game script, blowout risk, the
-   opponent, weather and recent form. Recent form is the last-5 average
+   opponent, weather and recent form. Each projection accounts for:
+   game script (the live lead plus the drift implied by the spread, so
+   pregame lines lean too), blowout benching, offensive pace, target and
+   carry share including bumps when a teammate is out, opponent yards
+   allowed combined with the scheme fit (shadow corners, slot funnels),
+   availability and playing-hurt efficiency, wind and rain for passing,
+   kicking and big plays, the referee crew, each player's reliance on big
+   plays, and a per-simulation in-game adjustment shock. Recent form is the last-5 average
    against the season average, shrunk toward neutral and capped at ±30%. Yardage is simulated touch by touch, so the "longest"
    markets work too. The result is then blended with the book's no-vig price,
    weighted 65% model and 35% market.

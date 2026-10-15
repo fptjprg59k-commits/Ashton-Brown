@@ -310,7 +310,12 @@ function buildContext(data) {
   teams[abbrs[0]].ppg = T / 2 - S / 2; teams[abbrs[1]].ppg = T / 2 + S / 2;
   const priorByName = {};
   for (const p of ctx.players || []) priorByName[normName(p.name)] = p;
-  const out = { data, elapsed, remaining, teams, abbrs, spread, total, priorByName, passEnv: Number(cg.pass_env_mult) || 1, weather: cg.weather || "" };
+  const num = (x, d, a, b) => { const v = Number(x); return isFinite(v) && x !== null ? clamp(v, a, b) : d; };
+  const out = { data, elapsed, remaining, teams, abbrs, spread, total, priorByName, weather: cg.weather || "",
+    passEnv: num(cg.pass_env_mult, 1, 0.8, 1.05), bigPlayEnv: num(cg.big_play_env, 1, 0.75, 1.1), kickEnv: num(cg.kick_env, 1, 0.75, 1.05),
+    refMult: num(cg.ref_mult, 1, 0.95, 1.05), pace: {} };
+  out.pace[abbrs[0]] = num(cg.pace_mult_home, 1, 0.88, 1.12); out.pace[abbrs[1]] = num(cg.pace_mult_away, 1, 0.88, 1.12);
+  out.paceGame = (out.pace[abbrs[0]] + out.pace[abbrs[1]]) / 2;
   // pregame lines already price defenses in; only lean on yards allowed when they're missing
   if (total === null) for (const a of abbrs) { const od = opponentDefense(out, a); if (od?.totMult) teams[a].ppg *= od.totMult; }
   return out;
@@ -322,6 +327,12 @@ function findPlayer(ctx, name) {
   let p = list.find(x => normName(x.name) === n);
   if (!p) { const last = n.slice(-6); p = list.find(x => normName(x.name).endsWith(last) && normName(x.name)[0] === n[0]); }
   return p || null;
+}
+// Expected final margin for a team from the pregame spread (home spread -3.5 => home +3.5).
+function expMargin(ctx, abbr) {
+  if (ctx.spread === null) return 0;
+  const t = teamOf(ctx, abbr); if (!t) return 0;
+  return t.side === "home" ? -ctx.spread : ctx.spread;
 }
 function teamOf(ctx, abbr) { return ctx.teams[String(abbr || "").toUpperCase()] || null; }
 function leadFor(ctx, abbr) {
@@ -353,29 +364,46 @@ function remainingMean(ctx, player, key, scope, form = 1) {
   const pace = e > 0 ? cur / e : prior / 60;
   let rate = w * pace + (1 - w) * prior / 60;
   const why = [];
-  const lead = leadFor(ctx, player.team);
-  const z = lead / Math.sqrt(Math.max(r, 6));
+  const lead = leadFor(ctx, player.team), drift = expMargin(ctx, player.team);
+  // average lead over the minutes being projected: today's score plus where the spread says it's heading
+  const leadAvg = lead + drift * (r / 2) / 60, leadEnd = lead + drift * r / 60;
+  const z = leadAvg / Math.sqrt(Math.max(r, 6));
   let script = 1;
   if (spec.flow === "pass") script = 1 - 0.2 * Math.tanh(z / 1.2);
   if (spec.flow === "rush") script = 1 + 0.18 * Math.tanh(z / 1.2);
   if (spec.flow === "pass" && pos !== "QB" && pos !== "K") script = 1 - 0.16 * Math.tanh(z / 1.2);
   let blow = 1;
-  const big = Math.abs(lead);
-  if (big >= 10 && pos !== "K") blow = 1 - (lead > 0 ? 0.32 : 0.16) * sigmoid((big - 17) / 3.5) * Math.min(1, r / 30);
+  const big = Math.abs(leadEnd);
+  if (big >= 10 && pos !== "K" && scope !== "first_half" && scope !== "first_quarter") blow = 1 - (leadEnd > 0 ? 0.32 : 0.16) * sigmoid((big - 17) / 3.5) * Math.min(1, r / 30);
   let env = 1;
   if (spec.flow === "pass" && STAT[key]?.yards) env = ctx.passEnv;
-  const dm = Number((pri.defense_mult || {})[key]);
-  let def = isFinite(dm) ? clamp(dm, 0.7, 1.3) : 1, defInfo = null;
+  if (key === "fg_made") env = ctx.kickEnv;
+  // opponent: yards-allowed rank (if the stat is yardage) times Claude's scheme read (slot funnel, shadow corner...)
+  const pick = (o, k) => { const v = Number((o || {})[k]); return isFinite(v) ? v : null; };
+  const scheme = clamp(pick(pri.scheme_mult, key) ?? 1, 0.8, 1.2);
+  let def = clamp(pick(pri.scheme_mult, key) ?? pick(pri.defense_mult, key) ?? 1, 0.7, 1.3), defInfo = null;
   const od = opponentDefense(ctx, player.team);
   if (od && od.passMult) {
-    if (PASS_YARD_KEYS.includes(key)) { def = od.passMult; defInfo = { kind: "pass", rank: od.passRank, yds: od.pass, name: od.name }; }
-    else if (PASS_COUNT_KEYS.includes(key)) { def = Math.sqrt(od.passMult); defInfo = { kind: "pass", rank: od.passRank, yds: od.pass, name: od.name }; }
-    else if (RUN_YARD_KEYS.includes(key)) { def = od.runMult; defInfo = { kind: "run", rank: od.runRank, yds: od.run, name: od.name }; }
+    if (PASS_YARD_KEYS.includes(key)) { def = od.passMult * scheme; defInfo = { kind: "pass", rank: od.passRank, yds: od.pass, name: od.name, base: od.passMult }; }
+    else if (PASS_COUNT_KEYS.includes(key)) { def = Math.sqrt(od.passMult) * scheme; defInfo = { kind: "pass", rank: od.passRank, yds: od.pass, name: od.name, base: Math.sqrt(od.passMult) }; }
+    else if (RUN_YARD_KEYS.includes(key)) { def = od.runMult * scheme; defInfo = { kind: "run", rank: od.runRank, yds: od.run, name: od.name, base: od.runMult }; }
   }
-  const mean = Math.max(0, rate * r * script * blow * env * def * form);
+  // offensive pace: own team's play volume, a little of the opponent's
+  const opp = ctx.abbrs.find(a => a !== String(player.team || "").toUpperCase());
+  const paceM = posKey === "K" || posKey === "DEF" ? 1 : (ctx.pace[String(player.team || "").toUpperCase()] ?? 1) * 0.7 + (ctx.pace[opp] ?? 1) * 0.3;
+  const usage = clamp(Number(pri.usage_mult) || 1, 0.6, 1.5);
+  const eff = STAT[key]?.yards ? clamp(Number(pri.effectiveness) || 1, 0.7, 1) : 1;
+  const refs = posKey === "DEF" ? 1 : ctx.refMult;
+  const mean = Math.max(0, rate * r * script * blow * env * def * form * paceM * usage * eff * refs);
   const avail = isFinite(Number(pri.availability)) ? clamp(Number(pri.availability), 0, 1) : 1;
-  return { cur, prior, priorSource, pace: pace * 60, w, script, blow, env, def, defInfo, mean, avail, lead, r, pos: posKey };
+  const bigPlay = clamp(isFinite(Number(pri.big_play)) ? Number(pri.big_play) : 0.5, 0, 1);
+  return { cur, prior, priorSource, pace: pace * 60, w, script, blow, env, def, scheme, defInfo, paceM, usage, eff, refs, bigPlay, mean, avail, lead, leadAvg, drift, r, pos: posKey };
 }
+
+// Halftime / in-game adjustments: each simulated game gets its own coordinator shock, so a hot
+// player can get schemed out (or freed up). Mean-preserving; widens the range of outcomes.
+const FLOW_SD = 0.14;
+function flowShock(r) { return Math.exp(FLOW_SD * normal(r) - FLOW_SD * FLOW_SD / 2); }
 
 function simStat(ctx, player, key, scope, N, cache, form = 1) {
   const ck = player.name + "|" + key + "|" + scope + "|" + form.toFixed(3);
@@ -389,16 +417,18 @@ function simStat(ctx, player, key, scope, N, cache, form = 1) {
     const pri = ctx.priorByName[normName(player.name)] || {}; const pg = pri.per_game || {};
     let ypt = spec.ypt;
     if (isFinite(Number(pg[key])) && Number(pg[spec.touch]) > 0.5) ypt = clamp(Number(pg[key]) / Number(pg[spec.touch]), spec.ypt * 0.4, spec.ypt * 2);
-    const touches = m.mean / ypt, base = ypt - spec.shift, shape = Math.pow(base / (spec.cv * ypt), 2), scale = base / shape;
+    // playing hurt costs yards per touch, not touches; big-play reliance and weather set the per-touch spread
+    const yptEff = ypt * m.eff, cv = spec.cv * (0.7 + 0.6 * m.bigPlay) * ctx.bigPlayEnv;
+    const touches = m.mean / yptEff, base = yptEff - spec.shift, shape = Math.pow(base / (cv * yptEff), 2), scale = base / shape;
     for (let i = 0; i < N; i++) {
       const play = r() < leaveP ? r() : 1;
-      const n = negbin(r, touches * play, STAT[spec.touch]?.k ?? 6);
+      const n = negbin(r, touches * play * flowShock(r), STAT[spec.touch]?.k ?? 6);
       let s = 0, best = 0;
       for (let j = 0; j < n; j++) { const y = Math.round(gamma(r, shape) * scale + spec.shift); s += y; if (y > best) best = y; }
       tot[i] = s; mx[i] = best;
     }
   } else {
-    for (let i = 0; i < N; i++) { const play = r() < leaveP ? r() : 1; tot[i] = negbin(r, m.mean * play, spec.k); }
+    for (let i = 0; i < N; i++) { const play = r() < leaveP ? r() : 1; tot[i] = negbin(r, m.mean * play * flowShock(r), spec.k); }
   }
   return (cache[ck] = { m, tot, mx });
 }
@@ -411,7 +441,7 @@ function simTeams(ctx, N, cache, rem) {
   const out = {};
   for (const a of ctx.abbrs) {
     const t = ctx.teams[a];
-    const rate = w * (e > 0 ? t.score / e : t.ppg / 60) + (1 - w) * t.ppg / 60;
+    const rate = w * (e > 0 ? t.score / e : t.ppg / 60) + (1 - w) * t.ppg * ctx.paceGame * ctx.refMult / 60;
     const mean = rate * rem, drives = Math.max(1, Math.round(11.3 * rem / 60));
     const perDrive = mean / drives;
     let pTD = 0.72 * perDrive / 7, pFG = 0.28 * perDrive / 3;
@@ -604,11 +634,22 @@ function addPlayerReasons(res, m, pri, key) {
       ? `Season avg ${fmt(m.prior, m.prior < 10 ? 1 : 0)} ${label.toLowerCase()}/game vs ${fmt(m.pace, m.pace < 10 ? 1 : 0)} pace today (today counts ${Math.round(m.w * 100)}%)`
       : `Season avg ${fmt(m.prior, m.prior < 10 ? 1 : 0)} ${label.toLowerCase()}/game`);
   }
-  if (Math.abs(m.script - 1) >= 0.03) res.reasons.push(`Game script (${m.lead > 0 ? "up " + m.lead : m.lead < 0 ? "down " + -m.lead : "tied"}): ${pctText(m.script - 1)} volume`);
+  if (Math.abs(m.script - 1) >= 0.03) {
+    const now = m.lead > 0 ? "up " + m.lead : m.lead < 0 ? "down " + -m.lead : "tied";
+    const sp = m.drift ? `, ${m.drift > 0 ? "favored" : "underdog"} by ${fmt(Math.abs(m.drift), 1)}` : "";
+    res.reasons.push(`Game script (${now}${sp}): ${pctText(m.script - 1)} volume`);
+  }
+  if (Math.abs(m.paceM - 1) >= 0.02) res.reasons.push(`Offensive pace: ${pctText(m.paceM - 1)} plays`);
+  if (Math.abs(m.usage - 1) >= 0.03) res.reasons.push(`Role/usage change: ${pctText(m.usage - 1)} share`);
+  if (m.eff < 0.98) res.reasons.push(`Playing hurt: ${pctText(m.eff - 1)} per touch`);
   if (m.blow < 0.97) res.reasons.push(`Blowout risk could sit starters late: ${pctText(m.blow - 1)}`);
-  if (m.defInfo) res.reasons.push(`${m.defInfo.name} ${m.defInfo.kind} D ranks #${m.defInfo.rank} (${m.defInfo.yds.toLocaleString()} yds allowed): ${Math.abs(m.def - 1) < 0.01 ? "about average" : pctText(m.def - 1)}`);
+  if (m.defInfo) res.reasons.push(`${m.defInfo.name} ${m.defInfo.kind} D ranks #${m.defInfo.rank} (${m.defInfo.yds.toLocaleString()} yds allowed): ${Math.abs(m.defInfo.base - 1) < 0.01 ? "about average" : pctText(m.defInfo.base - 1)}`);
+  if (Math.abs(m.scheme - 1) >= 0.03) res.reasons.push(`Scheme/coverage matchup: ${pctText(m.scheme - 1)}`);
   else if (Math.abs(m.def - 1) >= 0.03) res.reasons.push(`Opponent matchup: ${pctText(m.def - 1)}`);
-  if (Math.abs(m.env - 1) >= 0.03) res.reasons.push(`Weather: ${pctText(m.env - 1)} passing`);
+  if (Math.abs(m.env - 1) >= 0.03) res.reasons.push(`Weather: ${pctText(m.env - 1)} ${key === "fg_made" ? "kicking" : "passing"}`);
+  if (m.bigPlay >= 0.68) res.reasons.push("Big-play reliant: boom-or-bust, wide range of outcomes");
+  else if (m.bigPlay <= 0.32) res.reasons.push("Volume/possession profile: steady, narrow range of outcomes");
+  if (Math.abs(m.refs - 1) >= 0.015) res.reasons.push(`Referee crew: ${m.refs > 1 ? "flag-heavy, extends drives" : "lets them play, fewer extended drives"} (${pctText(m.refs - 1)})`);
   if (m.avail < 0.97) res.reasons.push(`Health: ${Math.round(m.avail * 100)}% chance to finish the game`);
   if (pri.note) res.reasons.push(pri.note);
 }
@@ -1025,15 +1066,20 @@ Players with props, their stats so far, and the markets offered:
 ${JSON.stringify(roster.map(r => ({ ...r, markets: [...(markets[r.name] || [])], last5_from_book: recent[r.name] || undefined })))}
 ${others.length ? "Unusual markets to estimate directly:\n" + JSON.stringify(others) : ""}
 
-Using everything you know (this season's per-game averages through your latest knowledge, role and snap share, the opponent's defense against that stat, injuries, weather and venue, coaching tendencies), reply with only this JSON:
-{"game":{"pregame_spread_home":-3.5,"pregame_total":47.5,"weather":"short text or empty","pass_env_mult":1.0},
- "players":[{"name":"exact name from the list","per_game":{"<stat>":number},"defense_mult":{"<stat>":number},"availability":1.0,"note":"one short sentence, only if it matters"}],
+Using everything you know (this season's per-game averages through your latest knowledge, target/carry/red-zone share, injuries to the player and his teammates, the opponent's scheme, weather and venue, each team's pace, the referee crew, coaching tendencies), reply with only this JSON:
+{"game":{"pregame_spread_home":-3.5,"pregame_total":47.5,"weather":"short text or empty","pass_env_mult":1.0,"big_play_env":1.0,"kick_env":1.0,"pace_mult_home":1.0,"pace_mult_away":1.0,"ref_mult":1.0},
+ "players":[{"name":"exact name from the list","per_game":{"<stat>":number},"scheme_mult":{"<stat>":number},"usage_mult":1.0,"availability":1.0,"effectiveness":1.0,"big_play":0.5,"note":"one short sentence, only if it matters"}],
  "other":[{"id":"p12","p":0.55,"why":"one short sentence"}]}
 
 Stat keys for per_game: pass_att, pass_cmp, pass_yds, pass_td, int, rush_att, rush_yds, rush_td, targets, rec, rec_yds, rec_td, tackles, sacks, fg_made, xp_made. For each player give per-game averages for every stat behind their markets (Rush + Rec Yds needs rush_yds and rec_yds; Anytime TD needs rush_td and rec_td; Longest Reception needs rec and rec_yds; yardage markets also need the matching touch stat: pass_cmp, rush_att or rec).
-defense_mult: multiplier for this opponent vs league average on that stat (0.85 = tough, 1.15 = soft); omit if neutral. Yards-allowed rankings are applied separately, so use this only for things they miss (TDs, sacks, interceptions, tackles, slot/outside or TE-specific matchups).
-availability: probability the player finishes the game (lower for an in-game injury or questionable tag).
-pass_env_mult: wind/rain effect on passing yards (1.0 dome or calm, ~0.92 for 20+ mph wind).
+scheme_mult: how this defense's scheme fits THIS player beyond raw yards allowed (yards-allowed ranks are applied separately): shadow corner on a WR1 ~0.88, a defense that funnels targets to the slot/TE/RB ~1.10, two-high shell vs a deep threat ~0.92; also TDs/sacks/INTs/tackles matchups. Omit if neutral.
+usage_mult: change in this player's target/carry share vs his season average from teammates out or returning, or a role change (WR1 out -> WR2 ~1.15; RB back from injury splitting work ~0.85). 1.0 if nothing changed.
+availability: probability the player finishes the game (lower for a questionable tag or an in-game injury).
+effectiveness: per-touch efficiency if playing through an injury (0.9 hobbled), 1.0 if healthy.
+big_play: 0-1 reliance on explosive plays (deep threat or home-run back ~0.8, possession receiver / short-area TE ~0.25, average 0.5).
+pace_mult_home/away: each offense's plays per game vs league average (no-huddle/fast ~1.06, slow and run-heavy ~0.94).
+ref_mult: this officiating crew's tendency (flag-heavy on DPI/holding that extends drives ~1.02, lets them play ~0.98); 1.0 if unknown.
+pass_env_mult: wind/rain effect on passing yards (1.0 dome or calm, ~0.92 for 20+ mph wind). big_play_env: heavy rain/snow ~0.85 (fewer explosive plays), else 1.0. kick_env: field-goal success/volume in wind or snow (strong wind ~0.85), else 1.0.
 Use null for pregame lines you don't know. Estimates are fine; be calibrated, not optimistic.`;
 }
 
