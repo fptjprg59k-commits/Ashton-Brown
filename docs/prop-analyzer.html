@@ -142,7 +142,7 @@ h2 { font: 700 1.3rem/1.1 var(--display); text-transform: uppercase; letter-spac
 <div class="wrap">
   <header>
     <h1>Halftime Prop Analyzer</h1>
-    <p>Upload a screen recording that shows the live stats and the prop board. Every prop gets one number: the chance it hits, ranked from most to least likely. First-half lines are judged as of kickoff, with a projected stat for each; halftime and live lines are judged from where the game stands now.</p>
+    <p>Upload a screen recording that shows the live stats and the prop board. Every prop gets one number: the chance it hits, ranked from most to least likely. First-half lines are judged as of kickoff, with a projected stat for each; halftime lines are judged from where the game stands now.</p>
   </header>
 
   <section class="upload" id="drop">
@@ -687,7 +687,7 @@ function render(data, result) {
   const pre = result.pregame, live = result.live;
   $("#preSec").innerHTML = pre.length ? `<div class="sec-h"><h2>Pregame</h2><span>1st-half lines · judged as of kickoff</span></div>
     <div class="list">${pre.map((r, i) => propRow(r, i, true)).join("")}</div>` : "";
-  $("#liveSec").innerHTML = live.length || !pre.length ? `<div class="sec-h"><h2>Halftime &amp; live</h2><span>judged from the current score and stats</span></div>
+  $("#liveSec").innerHTML = live.length || !pre.length ? `<div class="sec-h"><h2>Halftime</h2><span>judged from the current score and stats</span></div>
     <div class="list">${live.map((r, i) => propRow(r, i, false)).join("") || '<p class="hint">No props were found. Try a recording that shows the prop board more slowly.</p>'}</div>` : "";
 
   $("#settled").innerHTML = result.settled.length ? `<details class="box"><summary>Already decided (${result.settled.length})</summary><div class="tbl"><table><tr><th>Prop</th><th>Result</th></tr>${result.settled.map(r => { const t = propTitle(r); return `<tr><td>${esc(t.who)} · ${esc(t.what)}</td><td>${r.settled === "hit" ? "Hit" : "Lost"}</td></tr>`; }).join("")}</table></div></details>` : "";

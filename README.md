@@ -164,7 +164,7 @@ Results come in two sections, each ranked from most to least likely:
   recording was taken at halftime, each line also shows what actually
   happened in the first half. When the game hasn't started yet, every line
   goes in this section.
-- **Halftime & live** lists full-game and 2nd-half lines, judged from the
+- **Halftime** lists full-game and 2nd-half lines, judged from the
   current score and stats as described above.
 
 Props that have already cashed or lost are left out of the ranking and listed
